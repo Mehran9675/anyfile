@@ -1,0 +1,207 @@
+name: Release
+
+# Builds AnyFile for Windows, macOS and Linux on x86-64 and ARM64 when a
+# GitHub release is published, and attaches the packages to it.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build and upload to
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # The engines and the session have no GUI dependencies.
+      - run: go vet ./internal/carve ./internal/cfb ./internal/detect ./internal/explore/... ./internal/oggopus ./internal/oodle ./internal/session ./internal/tools ./cmd/anyprobe
+      - run: go test ./internal/carve ./internal/detect ./internal/oggopus ./internal/session
+
+  windows:
+    name: Windows ${{ matrix.arch }}
+    needs: test
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    env:
+      GOOS: windows
+      GOARCH: ${{ matrix.arch }}
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Embed icon and version info
+        shell: bash
+        working-directory: cmd/anyfile
+        run: |
+          # Windows wants a numeric version: v1.2.3-beta becomes 1.2.3.
+          VER="${TAG#v}"; VER="${VER%%-*}"
+          go run github.com/tc-hib/go-winres@v0.3.3 simply \
+            --arch "$GOARCH" \
+            --icon ../../internal/ui/assets/icon.png \
+            --manifest gui \
+            --product-name AnyFile \
+            --file-description "AnyFile file inspector" \
+            --product-version "$VER" \
+            --file-version "$VER"
+      - name: Build
+        shell: bash
+        run: |
+          mkdir -p dist/pkg
+          go build -trimpath -ldflags "-s -w -H windowsgui -X main.version=$TAG" -o dist/pkg/AnyFile.exe ./cmd/anyfile
+          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/pkg/anyprobe.exe ./cmd/anyprobe
+          cp README.md dist/pkg/
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path dist/pkg/* -DestinationPath "dist/AnyFile-$env:TAG-windows-$env:GOARCH.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: dist/*.zip
+
+  linux:
+    name: Linux ${{ matrix.arch }}
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install Gio build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc pkg-config libwayland-dev libx11-dev libx11-xcb-dev \
+            libxkbcommon-x11-dev libgles2-mesa-dev libegl1-mesa-dev libffi-dev \
+            libxcursor-dev libvulkan-dev
+      - name: Build
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          mkdir -p dist/AnyFile
+          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/AnyFile/anyfile ./cmd/anyfile
+          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/AnyFile/anyprobe ./cmd/anyprobe
+          cp README.md internal/ui/assets/icon.png dist/AnyFile/
+          cat > dist/AnyFile/anyfile.desktop <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=AnyFile
+          Comment=Find out what any file really is and explore what's inside
+          Exec=anyfile %f
+          Icon=anyfile
+          Categories=Utility;
+          EOF
+      - name: Package
+        run: tar -C dist -czf "dist/AnyFile-$TAG-linux-${{ matrix.arch }}.tar.gz" AnyFile
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: dist/*.tar.gz
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    needs: test
+    # Apple Silicon runner; the Intel build cross-compiles with clang.
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            clang_arch: arm64
+          - arch: amd64
+            clang_arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        env:
+          CGO_ENABLED: "1"
+          GOOS: darwin
+          GOARCH: ${{ matrix.arch }}
+          CC: clang -arch ${{ matrix.clang_arch }}
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: |
+          mkdir -p dist
+          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/anyfile ./cmd/anyfile
+          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/anyprobe ./cmd/anyprobe
+      - name: Make app bundle
+        run: |
+          APP=dist/AnyFile.app
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp dist/anyfile dist/anyprobe "$APP/Contents/MacOS/"
+          ICONSET=dist/AnyFile.iconset
+          mkdir -p "$ICONSET"
+          for s in 16 32 128 256; do
+            sips -z $s $s internal/ui/assets/icon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+            d=$((s * 2))
+            sips -z $d $d internal/ui/assets/icon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+          done
+          iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AnyFile.icns"
+          cat > "$APP/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>AnyFile</string>
+            <key>CFBundleDisplayName</key><string>AnyFile</string>
+            <key>CFBundleIdentifier</key><string>com.mehran9675.anyfile</string>
+            <key>CFBundleExecutable</key><string>anyfile</string>
+            <key>CFBundleIconFile</key><string>AnyFile</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>${TAG#v}</string>
+            <key>CFBundleVersion</key><string>${TAG#v}</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          EOF
+          # Ad-hoc signature: required for arm64 binaries to launch at all.
+          codesign --force --deep --sign - "$APP"
+      - name: Package
+        run: ditto -c -k --keepParent dist/AnyFile.app "dist/AnyFile-$TAG-macos-${{ matrix.arch }}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: dist/*.zip
+
+  publish:
+    name: Attach to release
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
