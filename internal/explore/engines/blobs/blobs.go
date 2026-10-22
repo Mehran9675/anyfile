@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/mehran9675/anyfile/internal/settings"
+
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/explore"
 )
@@ -20,10 +22,8 @@ func init() {
 	explore.Register(explore.Engine{Name: "Encoded blobs", Priority: 90, Match: match, List: list})
 }
 
-const maxText = 128 << 20
-
 func match(d *detect.Result, h []byte) bool {
-	if d.Size > maxText || d.Detail("Encoding") == "" {
+	if d.Size > settings.MB(settings.Get().MaxTextMB) || d.Detail("Encoding") == "" {
 		return false // only text the detector decoded
 	}
 	switch d.Category {

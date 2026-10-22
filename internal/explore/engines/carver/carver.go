@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mehran9675/anyfile/internal/settings"
+
 	"github.com/mehran9675/anyfile/internal/carve"
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/explore"
@@ -20,7 +22,7 @@ func init() {
 func autoCarve(d *detect.Result, h []byte) bool {
 	switch d.Category {
 	case detect.CatUnknown, detect.CatData, detect.CatEncrypted, detect.CatDiskImage, detect.CatExecutable, detect.CatDatabase:
-		return d.Size > 64
+		return d.Size > 64 && settings.Get().AutoCarve
 	}
 	return false
 }
@@ -33,7 +35,7 @@ func carveFile(p string, d *detect.Result) (*explore.Listing, error) {
 		return nil, err
 	}
 	st, _ := f.Stat()
-	hits := carve.Scan(f, st.Size(), carve.Options{SkipSelf: true, Limit: 1000})
+	hits := carve.Scan(f, st.Size(), carve.Options{SkipSelf: true, Limit: settings.Get().CarveLimit})
 	if len(hits) == 0 {
 		f.Close()
 		return nil, explore.ErrNotContainer

@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/mehran9675/anyfile/internal/settings"
 )
 
 // ErrMissing means no Oodle library could be found.
@@ -39,6 +41,11 @@ func Hint(path string) {
 
 // Find returns the Oodle library to use for a file at near, or "".
 func Find(near string) string {
+	if p := settings.Get().OodlePath; p != "" {
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return p
+		}
+	}
 	if p := os.Getenv("ANYFILE_OODLE"); p != "" {
 		if st, err := os.Stat(p); err == nil && !st.IsDir() {
 			return p

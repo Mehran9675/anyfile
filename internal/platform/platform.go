@@ -4,6 +4,7 @@
 package platform
 
 import (
+	"os"
 	"runtime"
 
 	"github.com/ncruces/zenity"
@@ -25,3 +26,21 @@ func PickFolder(title string) (string, bool) {
 // FileDropSupported reports whether files can be dropped on the window
 // here (giode implements drops on Windows only for now).
 func FileDropSupported() bool { return runtime.GOOS == "windows" }
+
+// PickFiles shows the native "open file" dialog allowing several files.
+func PickFiles(title string) ([]string, bool) {
+	ps, err := zenity.SelectFileMultiple(zenity.Title(title))
+	return ps, err == nil && len(ps) > 0
+}
+
+// IsFile reports whether p is an existing regular file.
+func IsFile(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && !st.IsDir()
+}
+
+// IsDir reports whether p is an existing folder.
+func IsDir(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && st.IsDir()
+}

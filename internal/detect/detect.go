@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mehran9675/anyfile/internal/settings"
+
 	"github.com/mehran9675/anyfile/internal/carve"
 	"github.com/mehran9675/anyfile/internal/cfb"
 	"github.com/mehran9675/anyfile/internal/tools"
@@ -22,10 +24,11 @@ type Options struct {
 	ForceTrID bool
 }
 
-// trustedConfidence is the level above which TrID is not consulted.
-const trustedConfidence = 0.85
-
-const headSize = 64 << 10
+// How much of a file the built-in engines read, the confidence above
+// which TrID is skipped, and when TrID runs at all come from the user's
+// settings. The 64 KiB default sample covers every fixed-offset probe
+// (the deepest is the ISO 9660 descriptor at 0x8001-0x9006) and gives
+// the text classifiers enough lines, in a single read.
 
 // Detect identifies the file at p.
 func Detect(p string, opt Options) *Result {
@@ -50,17 +53,22 @@ func Detect(p string, opt Options) *Result {
 		r.set("Empty file", "", "application/x-empty", CatEmpty, 1, SrcHeuristic)
 		return r
 	}
-	head := make([]byte, min(int64(headSize), r.Size))
+	cfg := settings.Get()
+	head := make([]byte, min(int64(cfg.HeadKB)<<10, r.Size))
 	n, _ := io.ReadFull(f, head)
 	head = head[:n]
-	r.Entropy = entropy(f, r.Size)
+	r.Entropy = entropy(f, r.Size, settings.MB(cfg.EntropySampleMB))
 	r.detail("Entropy", fmt.Sprintf("%.2f bits/byte", r.Entropy))
 
 	// 1. Built-in signatures and structural probes.
 	builtin(p, head, opt.Name, r)
 
 	// 2. TrID, only when needed (or asked for).
-	if r.Confidence < trustedConfidence || opt.ForceTrID {
+	switch {
+	case opt.ForceTrID, cfg.TrIDMode == settings.TrIDAlways:
+		consultTrID(p, opt.Name, r)
+	case cfg.TrIDMode == settings.TrIDNever:
+	case r.Confidence < cfg.TrIDTrust:
 		consultTrID(p, opt.Name, r)
 	}
 
@@ -227,7 +235,7 @@ func fallback(f *os.File, h []byte, r *Result) {
 }
 
 // entropy samples up to 4 MiB spread over the file.
-func entropy(f *os.File, size int64) float64 {
+func entropy(f *os.File, size, sample int64) float64 {
 	var counts [256]int64
 	var total int64
 	const block = 64 << 10
@@ -237,7 +245,7 @@ func entropy(f *os.File, size int64) float64 {
 		step = block
 	}
 	buf := make([]byte, block)
-	for off := int64(0); off < size && total < 4<<20; off += step {
+	for off := int64(0); off < size && total < sample; off += step {
 		n, _ := f.ReadAt(buf, off)
 		for _, c := range buf[:n] {
 			counts[c]++

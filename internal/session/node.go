@@ -132,6 +132,7 @@ func guessCategory(ext string) detect.Category {
 
 // buildTree turns a flat listing into child nodes of parent.
 func (s *Session) buildTree(parent *Node, l *explore.Listing) {
+	s.version++
 	dirs := map[string]*Node{}
 	var attach func(p string) *Node
 	attach = func(p string) *Node {

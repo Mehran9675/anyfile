@@ -3,7 +3,6 @@ package detect
 import (
 	"archive/zip"
 	"bytes"
-	"compress/bzip2"
 	"compress/gzip"
 	"debug/elf"
 	"debug/macho"
@@ -15,8 +14,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/klauspost/compress/zstd"
-	"github.com/ulikunitz/xz"
+	"github.com/mehran9675/anyfile/internal/codec"
 
 	"github.com/mehran9675/anyfile/internal/cfb"
 )
@@ -511,21 +509,13 @@ func refineCompressed(p string, r *Result) {
 			r.detail("Original name", gr.Name)
 		}
 		rd = gr
-	case "bz2":
-		rd = bzip2.NewReader(f)
-	case "xz":
-		xr, err := xz.NewReader(f)
+	case "bz2", "xz", "zst":
+		cr, done, err := codec.Open(r.Ext, f)
 		if err != nil {
 			return
 		}
-		rd = xr
-	case "zst":
-		zr, err := zstd.NewReader(f)
-		if err != nil {
-			return
-		}
-		defer zr.Close()
-		rd = zr
+		defer done()
+		rd = cr
 	default:
 		return
 	}

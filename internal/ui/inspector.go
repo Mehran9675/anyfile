@@ -28,25 +28,26 @@ type inspector struct {
 func newInspector(u *UI) *inspector {
 	in := &inspector{u: u, copyBtns: map[string]giode.Element{}}
 	in.scroll = giode.Scroll(in.content, giode.Styles{ScrollBar: giode.ScrollBar{ThumbColor: "#ffffff22", Width: 6, Radius: 3}})
-	// Handlers run on the UI goroutine, where the session lives.
-	act := func(fn func(n *session.Node)) func() {
+	// Handlers run on the UI goroutine, where the sessions live, and act
+	// on the active tab's session at click time.
+	act := func(fn func(s *session.Session, n *session.Node)) func() {
 		return func() {
-			if in.node != nil {
-				fn(in.node)
+			if t := u.active; t != nil && in.node != nil {
+				fn(t.sess, in.node)
 			}
 		}
 	}
-	in.view_ = newBtn("eye", "Open in viewer", btnPrimary, act(u.sess.View))
-	in.with = newBtn("external", "Open with…", btnSecondary, act(u.sess.ViewWith))
-	in.save = newBtn("download", "Save file…", btnSecondary, act(func(n *session.Node) {
-		u.pickFolder("Save "+n.Name+" to…", func(dir string) { u.sess.SaveAs(n, dir) })
+	in.view_ = newBtn("eye", "Open in viewer", btnPrimary, act((*session.Session).View))
+	in.with = newBtn("external", "Open with…", btnSecondary, act((*session.Session).ViewWith))
+	in.save = newBtn("download", "Save file…", btnSecondary, act(func(s *session.Session, n *session.Node) {
+		u.pickFolder("Save "+n.Name+" to…", func(dir string) { s.SaveAs(n, dir) })
 	}))
-	in.extract = newBtn("extract", "Extract all…", btnSecondary, act(func(n *session.Node) {
-		u.pickFolder("Extract the contents of "+n.Name+" to…", func(dir string) { u.sess.ExtractAll(n, dir) })
+	in.extract = newBtn("extract", "Extract all…", btnSecondary, act(func(s *session.Session, n *session.Node) {
+		u.pickFolder("Extract the contents of "+n.Name+" to…", func(dir string) { s.ExtractAll(n, dir) })
 	}))
-	in.reveal = newBtn("reveal", "Show in folder", btnGhost, act(u.sess.Reveal))
-	in.deep = newBtn("scan", "Deep scan", btnGhost, act(u.sess.DeepScan))
-	in.trid = newBtn("sparkles", "Ask TrID", btnGhost, act(u.sess.AskTrID))
+	in.reveal = newBtn("reveal", "Show in folder", btnGhost, act((*session.Session).Reveal))
+	in.deep = newBtn("scan", "Deep scan", btnGhost, act((*session.Session).DeepScan))
+	in.trid = newBtn("sparkles", "Ask TrID", btnGhost, act((*session.Session).AskTrID))
 	for _, k := range []string{"MD5", "SHA-1", "SHA-256"} {
 		k := k
 		in.copyBtns[k] = giode.CopyButton(func() string {

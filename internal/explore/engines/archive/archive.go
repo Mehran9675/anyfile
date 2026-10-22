@@ -7,7 +7,6 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
-	"compress/bzip2"
 	"compress/gzip"
 	"encoding/binary"
 	"errors"
@@ -18,8 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/klauspost/compress/zstd"
-	"github.com/ulikunitz/xz"
+	"github.com/mehran9675/anyfile/internal/codec"
 
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/explore"
@@ -88,25 +86,10 @@ func matchTar(d *detect.Result, h []byte) bool {
 	return d.Ext == "tar" || strings.HasPrefix(d.Ext, "tar.")
 }
 
-// decompressor opens a reader for a compressed stream by extension.
+// decompressor opens a reader for a compressed stream by extension,
+// with the decompression limits from the settings.
 func decompressor(ext string, r io.Reader) (io.Reader, func(), error) {
-	switch ext {
-	case "gz", "tgz":
-		z, err := gzip.NewReader(r)
-		return z, func() { z.Close() }, err
-	case "bz2":
-		return bzip2.NewReader(r), func() {}, nil
-	case "xz":
-		z, err := xz.NewReader(r)
-		return z, func() {}, err
-	case "zst":
-		z, err := zstd.NewReader(r)
-		if err != nil {
-			return nil, nil, err
-		}
-		return z, z.Close, nil
-	}
-	return r, func() {}, nil
+	return codec.Open(ext, r)
 }
 
 func listTar(p string, d *detect.Result) (*explore.Listing, error) {

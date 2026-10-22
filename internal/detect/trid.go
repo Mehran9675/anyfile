@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mehran9675/anyfile/internal/settings"
+
 	"github.com/mehran9675/anyfile/internal/tools"
 )
 
@@ -25,7 +27,7 @@ func runTrID(p string) (cands []Candidate, ok bool) {
 	if !t.Found() {
 		return nil, false
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(settings.Get().TrIDTimeoutSec)*time.Second)
 	defer cancel()
 	cmd := tools.Command(t.Path, p, "-n:8")
 	cmd.Dir = filepath.Dir(t.Path)

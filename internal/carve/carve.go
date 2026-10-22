@@ -14,6 +14,8 @@ import (
 	"encoding/binary"
 	"io"
 	"sort"
+
+	"github.com/mehran9675/anyfile/internal/settings"
 )
 
 // Hit is one embedded object.
@@ -556,11 +558,12 @@ func gzipExtent(r io.ReaderAt, off, size int64) (int64, bool) {
 		return 0, false
 	}
 	zr.Multistream(false)
-	n, err := io.Copy(io.Discard, io.LimitReader(zr, 1<<30))
+	limit := settings.MB(settings.Get().MaxDecompressMB)
+	n, err := io.Copy(io.Discard, io.LimitReader(zr, limit))
 	if err != nil || n == 0 {
 		return 0, false
 	}
-	if n >= 1<<30 {
+	if n >= limit {
 		return -1, true
 	}
 	return cr.n, true

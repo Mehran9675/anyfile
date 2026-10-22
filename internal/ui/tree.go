@@ -7,24 +7,45 @@ import (
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/session"
 	"github.com/mehran9675/giode"
+	"github.com/mehran9675/giode/components/dropdown"
+	"github.com/mehran9675/giode/components/iconbutton"
+	"github.com/mehran9675/giode/components/input"
 )
 
-// treeView is the left panel: the opened file and everything found
-// inside it, nested containers included, on giode's TreeView.
+// treeView is one tab's left panel: the opened file and everything
+// found inside it, on giode's TreeView, with filtering and sorting.
 type treeView struct {
 	u     *UI
+	sess  *session.Session
 	tree  *giode.TreeViewElement
-	root  *session.Node
 	nodes map[*session.Node]*treeNode
+
+	// Toolbar.
+	search  *input.Input
+	group   *dropdown.Select
+	sortBy  *dropdown.Select
+	sortDir *iconbutton.Button
+
+	opts viewOptions
+	// The filter result, recomputed when the options or the tree change.
+	keep      map[*session.Node]bool
+	hits      int
+	keepFor   viewOptions
+	keepVer   int
+	optsEpoch int // bumps with every option change, to refresh child lists
 }
 
 // treeNode adapts a session node to giode.TreeNode. Children are
-// wrapped once and rewrapped only when the node's children change.
+// wrapped, filtered and sorted once, and redone only when the node's
+// children, the session or the view options change.
 type treeNode struct {
 	t     *treeView
 	n     *session.Node
 	kids  []giode.TreeNode
-	first *session.Node // Kids[0] when kids was built
+	built struct {
+		count, version, epoch int
+		first                 *session.Node
+	}
 }
 
 func (w *treeNode) Key() any          { return w.n.ID }
@@ -32,39 +53,73 @@ func (w *treeNode) Label() string     { return w.n.Name }
 func (w *treeNode) HasChildren() bool { return w.n.MayContain() }
 
 func (w *treeNode) Children() []giode.TreeNode {
+	t := w.t
 	var first *session.Node
 	if len(w.n.Kids) > 0 {
 		first = w.n.Kids[0]
 	}
-	if len(w.kids) != len(w.n.Kids) || w.first != first {
-		w.kids = make([]giode.TreeNode, len(w.n.Kids))
-		for i, k := range w.n.Kids {
-			w.kids[i] = w.t.wrap(k)
-		}
-		w.first = first
+	b := &w.built
+	if w.kids != nil && b.count == len(w.n.Kids) && b.first == first && b.version == t.sess.Version() && b.epoch == t.optsEpoch {
+		return w.kids
 	}
+	kids := make([]*session.Node, 0, len(w.n.Kids))
+	for _, k := range w.n.Kids {
+		if t.keep == nil || t.keep[k] {
+			kids = append(kids, k)
+		}
+	}
+	t.opts.sortNodes(kids)
+	w.kids = make([]giode.TreeNode, len(kids))
+	for i, k := range kids {
+		w.kids[i] = t.wrap(k)
+	}
+	b.count, b.first, b.version, b.epoch = len(w.n.Kids), first, t.sess.Version(), t.optsEpoch
 	return w.kids
 }
 
-func newTreeView(u *UI) *treeView {
-	t := &treeView{u: u, nodes: map[*session.Node]*treeNode{}}
+func newTreeView(u *UI, sess *session.Session) *treeView {
+	t := &treeView{u: u, sess: sess, nodes: map[*session.Node]*treeNode{}}
 	t.tree = giode.TreeView(t.roots, t.row, giode.Styles{
 		Height:      30,
 		Color:       colMuted,
 		BorderColor: colAccent,
 		ScrollBar:   giode.ScrollBar{ThumbColor: "#ffffff22", Width: 6, Radius: 3},
 	}).
-		OnSelect(func(n giode.TreeNode) { u.sess.Select(n.(*treeNode).n) }).
-		OnExpand(func(n giode.TreeNode) { u.sess.Expand(n.(*treeNode).n) }).
+		OnSelect(func(n giode.TreeNode) { sess.Select(n.(*treeNode).n) }).
+		OnExpand(func(n giode.TreeNode) { sess.Expand(n.(*treeNode).n) }).
 		OnActivate(func(n giode.TreeNode) {
 			node := n.(*treeNode).n
 			if node.MayContain() {
 				t.tree.Toggle(n.Key())
 			} else {
-				u.sess.View(node)
+				sess.View(node)
 			}
 		})
+
+	field := giode.Styles{Background: colSurface, Color: colText, BorderColor: colBorderHi, BorderRadius: 8}
+	t.search = giode.Input.Text("Filter by name", field.With(giode.Styles{Padding: giode.SymmetricInset(10, 7), FontSize: 13})).
+		Label("Filter by name").
+		OnChange(func(s string) { t.setOptions(func(o *viewOptions) { o.query = strings.ToLower(strings.TrimSpace(s)) }) })
+	t.group = giode.Input.Select(field.With(giode.Styles{Width: 168}), typeGroupLabels()...).
+		OnChange(func(i int) { t.setOptions(func(o *viewOptions) { o.group = i }) })
+	t.sortBy = giode.Input.Select(field.With(giode.Styles{Width: 138}), sortLabels...).
+		OnChange(func(i int) { t.setOptions(func(o *viewOptions) { o.sort = i }) })
+	t.sortDir = giode.IconButton(icon("sortAsc", colTextSoft, 16), giode.Styles{Background: colTextSoft}).
+		Variant(giode.IconButtonGhost).Label("Sort order").
+		OnClick(func() {
+			t.setOptions(func(o *viewOptions) { o.desc = !o.desc })
+			name := "sortAsc"
+			if t.opts.desc {
+				name = "sortDesc"
+			}
+			t.sortDir.Icon(icon(name, colTextSoft, 16))
+		})
 	return t
+}
+
+func (t *treeView) setOptions(change func(o *viewOptions)) {
+	change(&t.opts)
+	t.optsEpoch++
 }
 
 func (t *treeView) wrap(n *session.Node) *treeNode {
@@ -77,10 +132,10 @@ func (t *treeView) wrap(n *session.Node) *treeNode {
 }
 
 func (t *treeView) roots() []giode.TreeNode {
-	if t.root == nil {
-		return nil
+	if r := t.sess.Root(); r != nil {
+		return []giode.TreeNode{t.wrap(r)}
 	}
-	return []giode.TreeNode{t.wrap(t.root)}
+	return nil
 }
 
 // expand opens a node the session asks for: the opened file once
@@ -89,21 +144,56 @@ func (t *treeView) expand(n *session.Node) {
 	t.tree.Expand(n.ID, true)
 }
 
-func (t *treeView) view(root *session.Node) giode.Element {
-	if root != t.root {
-		// A new file: forget the previous tree's wrappers.
-		t.root = root
-		t.nodes = map[*session.Node]*treeNode{}
-		t.tree.Select(root.ID)
+// refilter recomputes which nodes the filter keeps, and opens the
+// folders and containers that hold matches.
+func (t *treeView) refilter(root *session.Node) {
+	if t.keepFor == t.opts && t.keepVer == t.sess.Version() {
+		return
+	}
+	t.keepFor, t.keepVer = t.opts, t.sess.Version()
+	if !t.opts.filtering() {
+		t.keep, t.hits = nil, 0
+		return
+	}
+	keep, open, hits := t.opts.visibleSet(root)
+	t.keep, t.hits = keep, hits
+	t.optsEpoch++
+	for _, n := range open {
+		t.tree.Expand(n.ID, true)
+	}
+}
+
+func (t *treeView) view() giode.Element {
+	root := t.sess.Root()
+	if root == nil {
+		return giode.Box(giode.Styles{})
+	}
+	t.refilter(root)
+	total := countFiles(root)
+	count := fmt.Sprintf("%d items", total)
+	if t.opts.filtering() {
+		count = fmt.Sprintf("%d of %d", t.hits, total)
 	}
 	header := giode.Row(giode.Styles{Width: -1, Align: giode.AlignCenter, Justify: giode.JustifySpaceBetween,
-		Padding: giode.Inset{Top: 16, Right: 16, Bottom: 10, Left: 18}, Wrap: giode.WrapNoWrap},
+		Padding: giode.Inset{Top: 14, Right: 16, Bottom: 8, Left: 18}, Wrap: giode.WrapNoWrap},
 		sectionTitle("layers", "Contents"),
-		giode.Text(fmt.Sprintf("%d items", countFiles(root)), txt(11.5, colFaint)),
+		giode.Text(count, txt(11.5, colFaint)),
 	)
+	toolbar := giode.Stack(giode.Styles{Width: -1, Gap: 8, Padding: giode.Inset{Right: 14, Bottom: 10, Left: 14}},
+		giode.Box(giode.Styles{Width: -1}, t.search),
+		giode.Row(giode.Styles{Width: -1, Gap: 6, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
+			t.group, t.sortBy, t.sortDir),
+	)
+	var body giode.Element = t.tree
+	if t.opts.filtering() && t.hits == 0 {
+		body = giode.Box(giode.Styles{Width: -1, Padding: giode.UniformInset(18)},
+			giode.Text("No files match the filter.", txt(12.5, colMuted)))
+	}
 	return giode.Stack(giode.Styles{Width: -1, Height: -1},
 		header,
-		giode.Box(giode.Styles{Width: -1, FlexGrow: 1, Padding: giode.Inset{Left: 8, Right: 4, Bottom: 8}}, t.tree),
+		toolbar,
+		giode.Divider(giode.Styles{Color: colBorder}),
+		giode.Box(giode.Styles{Width: -1, FlexGrow: 1, Padding: giode.Inset{Top: 6, Left: 8, Right: 4, Bottom: 8}}, body),
 	)
 }
 

@@ -17,6 +17,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/mehran9675/anyfile/internal/settings"
+
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/explore"
 )
@@ -31,15 +33,13 @@ func init() {
 	}, List: listMail})
 }
 
-const maxMessage = 512 << 20
-
 func listMail(p string, d *detect.Result) (*explore.Listing, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		return nil, err
 	}
-	if len(data) > maxMessage {
-		return nil, fmt.Errorf("message larger than %d MB", maxMessage>>20)
+	if limit := settings.Get().MaxMailMB; int64(len(data)) > settings.MB(limit) {
+		return nil, fmt.Errorf("larger than the %d MB email limit; raise it in Settings", limit)
 	}
 	l := &explore.Listing{Engine: "MIME (built-in)"}
 	if d.Ext == "mbox" {

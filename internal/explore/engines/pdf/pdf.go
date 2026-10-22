@@ -18,6 +18,8 @@ import (
 	"strings"
 	"unicode/utf16"
 
+	"github.com/mehran9675/anyfile/internal/settings"
+
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/explore"
 )
@@ -59,6 +61,9 @@ var (
 )
 
 func listPDF(p string, d *detect.Result) (*explore.Listing, error) {
+	if limit := settings.Get().MaxPDFMB; d.Size > settings.MB(limit) {
+		return nil, fmt.Errorf("larger than the %d MB PDF limit; raise it in Settings", limit)
+	}
 	data, err := os.ReadFile(p)
 	if err != nil {
 		return nil, err

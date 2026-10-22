@@ -144,3 +144,6 @@ func applyTheme() {
 	})
 	giode.SetMode(giode.ModeDark)
 }
+
+// color converts a plain string for a style field.
+func color(s string) properties.Color { return properties.Color(s) }

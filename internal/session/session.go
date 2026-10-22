@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mehran9675/anyfile/internal/settings"
+
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/explore"
 	"github.com/mehran9675/anyfile/internal/oodle"
@@ -35,6 +37,7 @@ type Session struct {
 	nextID   int
 	tmp      string
 	gen      int // bumps on Open, so results for a previous file are dropped
+	version  int // bumps whenever nodes are added or identified
 }
 
 // New creates an empty session. post must run functions on the UI
@@ -52,6 +55,10 @@ func (s *Session) Root() *Node { return s.root }
 
 // Selected returns the inspected node.
 func (s *Session) Selected() *Node { return s.selected }
+
+// Version changes whenever nodes are added, replaced or identified, so
+// views that sort or filter the tree know when to recompute.
+func (s *Session) Version() int { return s.version }
 
 func (s *Session) say(kind, format string, a ...any) {
 	if s.toast != nil {
@@ -126,7 +133,7 @@ func (s *Session) Open(p string) {
 	}
 	s.Close()
 	oodle.Hint(p)
-	tmp, _ := os.MkdirTemp("", "anyfile-")
+	tmp, _ := os.MkdirTemp(settings.Get().TempDir, "anyfile-")
 	root := s.newNode(filepath.Base(p), nil)
 	root.Local, root.Size = p, st.Size()
 	s.root, s.selected, s.tmp = root, root, tmp
@@ -168,6 +175,7 @@ func (s *Session) AskTrID(n *Node) {
 				if !current {
 					return
 				}
+				s.version++
 				n.Result = r
 				if !r.TrIDRan {
 					s.say("error", "TrID is not available. Put trid.exe and triddefs.trd next to AnyFile or set ANYFILE_TRID.")
@@ -236,6 +244,7 @@ func (s *Session) prepareThen(n *Node, then func(ok bool)) {
 				n.Err = "Could not extract: " + err.Error()
 			}
 			if ok {
+				s.version++
 				n.Local, n.Result = local, r
 				if size >= 0 {
 					n.Size = size
@@ -251,21 +260,17 @@ func (s *Session) prepareThen(n *Node, then func(ok bool)) {
 	})
 }
 
-// Limits for identifying a container's members in the background.
-const (
-	prefetchCount = 300
-	prefetchSize  = 256 << 20
-)
-
 // prefetch identifies the members of n one after another, so the tree
 // shows their real types and which of them can be expanded without
 // waiting for clicks.
 func (s *Session) prefetch(n *Node) {
+	cfg := settings.Get()
+	prefetchSize := settings.MB(cfg.PrefetchMaxMB)
 	var files []*Node
 	var collect func(*Node)
 	collect = func(c *Node) {
 		for _, k := range c.Kids {
-			if len(files) >= prefetchCount {
+			if len(files) >= cfg.PrefetchCount {
 				return
 			}
 			switch {
@@ -339,6 +344,9 @@ func (s *Session) explore(n *Node, deep bool) {
 
 func (s *Session) hash(n *Node) {
 	if n.Hashes != nil || n.hashing || n.Local == "" {
+		return
+	}
+	if cfg := settings.Get(); !cfg.Checksums || cfg.ChecksumMaxMB > 0 && n.Size > settings.MB(cfg.ChecksumMaxMB) {
 		return
 	}
 	n.hashing = true

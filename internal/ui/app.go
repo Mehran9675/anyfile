@@ -1,7 +1,8 @@
 // Package ui is AnyFile's interface, built with giode: a frameless
-// window with a content tree on the left and an inspector on the
-// right. All state lives in the session, which belongs to the UI
-// goroutine; the UI renders it and turns clicks into session calls.
+// window with one tab per opened file, each showing a content tree on
+// the left and an inspector on the right. All state lives in the tabs'
+// sessions, which belong to the UI goroutine; the UI renders them and
+// turns clicks into session calls.
 package ui
 
 import (
@@ -10,10 +11,13 @@ import (
 	"log"
 	"time"
 
+	"gioui.org/layout"
+
 	"github.com/mehran9675/anyfile/internal/explore"
 	"github.com/mehran9675/anyfile/internal/oodle"
 	"github.com/mehran9675/anyfile/internal/platform"
 	"github.com/mehran9675/anyfile/internal/session"
+	"github.com/mehran9675/anyfile/internal/settings"
 	"github.com/mehran9675/anyfile/internal/tools"
 	"github.com/mehran9675/giode"
 	"github.com/mehran9675/giode/components/button"
@@ -23,15 +27,19 @@ import (
 // UI is the application window.
 type UI struct {
 	app    *giode.App
-	sess   *session.Session
 	bar    *titlebar.TitleBar
 	toasts *giode.ToasterElement
 
-	tree      *treeView
+	tabs      []*tab
+	active    *tab
 	inspector *inspector
 
 	openBtn      *button.Button
+	settingsBtn  *button.Button
 	emptyOpenBtn *button.Button
+
+	settings     *settingsPage
+	showSettings bool
 	dropZone     *giode.PressableElement
 	version      string
 }
@@ -41,6 +49,7 @@ type UI struct {
 func Run(args []string, version string) error {
 	loadFonts()
 	applyTheme()
+	settingsErr := settings.Load()
 	u := &UI{version: version}
 	cfg := giode.Config{
 		Title:      "AnyFile",
@@ -53,18 +62,27 @@ func Run(args []string, version string) error {
 		Background: colBg,
 		LogLevel:   giode.LogLevelError,
 		Logger:     log.Default(),
-		OnShutdown: func() { u.sess.Close() },
+		OnShutdown: func() {
+			for _, t := range u.tabs {
+				t.sess.Close()
+			}
+		},
 	}
 	if platform.FileDropSupported() {
-		cfg.OnFileDrop = func(paths []string) { u.sess.Open(paths[0]) }
+		cfg.OnFileDrop = u.openPaths
 	}
 	u.app = giode.New(cfg)
 	u.toasts = giode.Toaster(giode.Styles{Background: colRaised, BorderColor: colBorderHi, Color: colText, BorderRadius: 11}).
 		Placement(giode.ToastBottomRight).Duration(5 * time.Second).Max(4)
-	u.sess = session.New(u.app.Post, u.toast)
-	u.tree = newTreeView(u)
 	u.inspector = newInspector(u)
-	u.sess.OnExpand(u.tree.expand)
+	u.settings = newSettingsPage(u)
+	if settingsErr != nil {
+		u.toast("error", "Could not read settings, using defaults: "+settingsErr.Error())
+	}
+	// Tool paths may have changed: look for the tools again.
+	settings.Watch(func(settings.Settings) { tools.Reload() })
+	u.settingsBtn = newBtn("settings", "", btnGhost, func() { u.showSettings = !u.showSettings })
+	u.settingsBtn.Label("Settings")
 	u.openBtn = newBtn("open", "Open file", btnSecondary, u.pickFile)
 	u.emptyOpenBtn = newBtn("open", "Choose a file", btnPrimary, u.pickFile)
 	u.dropZone = giode.Pressable(u.dropZoneView).Label("Choose a file").
@@ -72,9 +90,9 @@ func Run(args []string, version string) error {
 	u.bar = giode.TitleBar(u.app, "AnyFile", giode.Styles{
 		Background: colSidebar, Color: colTextSoft, Height: 44, FontSize: 13,
 		BorderWidth: 1, BorderColor: colBorder,
-	}).Icon(logo(22)).Trailing(u.openBtn)
+	}).Icon(logo(22)).Leading(u.openBtn, dynamic(u.tabStrip)).Trailing(u.settingsBtn)
 	if len(args) > 0 {
-		u.app.Post(func() { u.sess.Open(args[0]) })
+		u.app.Post(func() { u.openPaths(args) })
 	}
 	return u.app.Run(u.view)
 }
@@ -89,10 +107,11 @@ func (u *UI) toast(kind, msg string) {
 }
 
 // pickFile shows the native dialog, which blocks, off the UI goroutine.
+// Every chosen file opens in its own tab.
 func (u *UI) pickFile() {
 	go func() {
-		if p, ok := platform.PickFile("Open any file"); ok {
-			u.app.Post(func() { u.sess.Open(p) })
+		if paths, ok := platform.PickFiles("Open files"); ok {
+			u.app.Post(func() { u.openPaths(paths) })
 		}
 	}()
 }
@@ -107,15 +126,18 @@ func (u *UI) pickFolder(title string, fn func(dir string)) {
 }
 
 func (u *UI) view() giode.Element {
-	root, sel := u.sess.Root(), u.sess.Selected()
 	var body giode.Element
-	if root == nil {
+	var root *session.Node
+	if t := u.active; u.showSettings {
+		body = u.settings.view()
+	} else if t == nil {
 		body = u.emptyState()
 	} else {
+		root = t.sess.Root()
 		body = giode.Row(giode.Styles{Width: -1, Height: -1, Wrap: giode.WrapNoWrap},
-			giode.Box(giode.Styles{Width: 400, Height: -1, Background: colSidebar}, u.tree.view(root)),
+			giode.Box(giode.Styles{Width: 400, Height: -1, Background: colSidebar}, t.tree.view()),
 			giode.Box(giode.Styles{Width: 1, Height: -1, Background: colBorder}),
-			giode.Box(giode.Styles{FlexGrow: 1, Width: -1, Height: -1}, u.inspector.view(sel)),
+			giode.Box(giode.Styles{FlexGrow: 1, Width: -1, Height: -1}, u.inspector.view(t.sess.Selected())),
 		)
 	}
 	return giode.Stack(giode.Styles{Width: -1, Height: -1, Background: colBg},
@@ -137,7 +159,7 @@ func (u *UI) emptyState() giode.Element {
 	var cards []giode.Element
 	for _, f := range features {
 		cards = append(cards, giode.Box(giode.Styles{
-			FlexDirection: giode.FlexDirectionColumn, Gap: 8, Width: 230,
+			FlexDirection: giode.FlexDirectionColumn, Gap: 8, Width: 230, Height: 180,
 			Padding: giode.UniformInset(16), Background: colSurface, BorderRadius: 12,
 			BorderWidth: 1, BorderColor: colBorder,
 		},
@@ -214,3 +236,9 @@ func (u *UI) statusBar(root *session.Node) giode.Element {
 		giode.Box(giode.Styles{MaxWidth: 520}, right),
 	)
 }
+
+// dynamic is an element rebuilt every frame, for places that take an
+// element once (the title bar's leading area holds the tab strip).
+type dynamic func() giode.Element
+
+func (d dynamic) Layout(gtx layout.Context) layout.Dimensions { return d().Layout(gtx) }
