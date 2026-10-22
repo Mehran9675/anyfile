@@ -22,7 +22,6 @@ Built in Go with [giode](https://github.com/Mehran9675/giode).
 | Email | `explore/engines/mail` | eml, mht/mhtml, mbox: bodies and attachments |
 | Disc images | `explore/engines/disc` | ISO 9660 + Joliet |
 | Encoded blobs | `explore/engines/blobs` | data: URIs and base64 payloads inside text files |
-| Call of Duty XSUB | `explore/engines/xsub` + `oggopus` + `oodle` | `KAPI` stream packages: bare Opus audio rewrapped as standard `.opus` (mono to 7.1 and beyond), Oodle-compressed assets decompressed with the game's own `oo2core` DLL |
 | 7-Zip *(optional)* | `explore/engines/sevenzip` | 7z, rar, cab, wim, vhd(x), dmg, NSIS and other installers, UDF… |
 | FFmpeg *(optional)* | `explore/engines/media` | video/audio/subtitle streams, cover art, Matroska attachments, all copied without re-encoding |
 | Signature carver | `explore/engines/carver` + `carve` | last resort, plus "Deep scan" on demand: finds embedded files anywhere and works out where each one ends |
@@ -39,47 +38,6 @@ AnyFile looks for each tool in this order: an environment variable, next to `any
 | Oodle | `ANYFILE_OODLE` | `oo2core_*_win64.dll`. Games ship it, so AnyFile also looks in the opened file's folder and two levels up. Never bundled (proprietary). |
 
 The status bar shows which engines were found.
-
-## Layout
-
-```
-cmd/anyfile        the app
-cmd/anyprobe       CLI: detect + recursively explore files (engine testing)
-internal/
-  detect           identification pipeline (signatures, structure, TrID, heuristics)
-  carve            embedded-object scanner with per-format extent logic
-  cfb              Compound File Binary reader
-  oggopus          wraps bare Opus packets in Ogg (multistream layouts inferred)
-  oodle            loads the oo2core library a game ships and decompresses with it
-  explore          core: Entry/Listing model, engine registry, safe extraction
-    engines/*      one package per engine family; engines/all enables them all
-  session          the inspected tree and its background jobs (no UI code)
-  platform         OS hand-off: open, open-with, reveal, dialogs, drag & drop
-  tools            locating external programs
-  ui               giode interface (tree, inspector, buttons, theme)
-```
-
-To add a format, create a package under `internal/explore/engines/` that calls `explore.Register` from `init`, then import it in `engines/all`.
-
-## Download
-
-Every [release](https://github.com/Mehran9675/anyfile/releases) has builds for:
-
-| Platform | x86-64 | ARM64 |
-| --- | --- | --- |
-| Windows | `AnyFile-<version>-windows-amd64.zip` | `AnyFile-<version>-windows-arm64.zip` |
-| macOS (11+) | `AnyFile-<version>-macos-amd64.zip` | `AnyFile-<version>-macos-arm64.zip` |
-| Linux | `AnyFile-<version>-linux-amd64.tar.gz` | `AnyFile-<version>-linux-arm64.tar.gz` |
-
-`SHA256SUMS.txt` lists the checksums. Platform notes:
-
-- **macOS:** the app is not notarized. The first time, right-click AnyFile.app and choose Open.
-- **Linux:** the file dialogs use `zenity` (or `kdialog`); install one if your desktop lacks it.
-- **Dropping files onto the window** works on Windows only for now; elsewhere use **Open file** or pass a path: `anyfile path/to/file`.
-
-## Releasing
-
-Publishing a GitHub release runs `.github/workflows/release.yml`, which tests the engines, then builds and attaches all six packages. Windows builds don't need cgo. Linux builds run on x86-64 and ARM64 runners, because Gio needs cgo there. macOS builds both architectures on an Apple Silicon runner. To rebuild an existing release, run the workflow by hand with its tag.
 
 ## Build and run
 
