@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 )
 
-// TrID modes.
+// When an extra identification engine (TrID, Magika) is consulted.
 const (
 	TrIDWhenNeeded = "auto"   // only when the built-in engines aren't sure
 	TrIDAlways     = "always" // for every file
@@ -26,7 +26,8 @@ type Settings struct {
 	HeadKB          int     `json:"head_kb"`           // bytes read from the start of a file for signatures and text analysis
 	EntropySampleMB int     `json:"entropy_sample_mb"` // bytes sampled to estimate entropy
 	TrIDMode        string  `json:"trid_mode"`
-	TrIDTrust       float64 `json:"trid_trust"` // built-in confidence (0..1) at which TrID is skipped
+	MagikaMode      string  `json:"magika_mode"` // same values as TrIDMode
+	TrIDTrust       float64 `json:"trid_trust"`  // built-in confidence (0..1) at which TrID is skipped
 	TrIDTimeoutSec  int     `json:"trid_timeout_sec"`
 
 	// Exploring.
@@ -46,6 +47,7 @@ type Settings struct {
 
 	// External tools ("" = find automatically).
 	TrIDPath     string `json:"trid_path"`
+	MagikaPath   string `json:"magika_path"`
 	SevenZipPath string `json:"sevenzip_path"`
 	FFprobePath  string `json:"ffprobe_path"`
 	FFmpegPath   string `json:"ffmpeg_path"`
@@ -58,6 +60,7 @@ func Defaults() Settings {
 		HeadKB:          64,
 		EntropySampleMB: 4,
 		TrIDMode:        TrIDWhenNeeded,
+		MagikaMode:      TrIDWhenNeeded,
 		TrIDTrust:       0.85,
 		TrIDTimeoutSec:  45,
 		PrefetchCount:   300,
@@ -195,6 +198,11 @@ func (s Settings) Clamped() Settings {
 	case TrIDWhenNeeded, TrIDAlways, TrIDNever:
 	default:
 		s.TrIDMode = TrIDWhenNeeded
+	}
+	switch s.MagikaMode {
+	case TrIDWhenNeeded, TrIDAlways, TrIDNever:
+	default:
+		s.MagikaMode = TrIDWhenNeeded
 	}
 	return s
 }

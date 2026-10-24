@@ -21,10 +21,11 @@ type settingsPage struct {
 	u      *UI
 	scroll *scroll.Scroll
 
-	numbers  map[string]*numberField
-	checks   map[string]*checkbox.Checkbox
-	tridMode *dropdown.Select
-	paths    map[string]*pathField
+	numbers    map[string]*numberField
+	checks     map[string]*checkbox.Checkbox
+	tridMode   *dropdown.Select
+	magikaMode *dropdown.Select
+	paths      map[string]*pathField
 
 	reset, done, showFile *button.Button
 }
@@ -89,6 +90,8 @@ func newSettingsPage(u *UI) *settingsPage {
 
 	sp.tridMode = giode.Input.Select(field.With(giode.Styles{Width: 290}), tridModeLabels...).
 		OnChange(func(i int) { sp.apply(func(s *settings.Settings) { s.TrIDMode = tridModes[i] }) })
+	sp.magikaMode = giode.Input.Select(field.With(giode.Styles{Width: 290}), tridModeLabels...).
+		OnChange(func(i int) { sp.apply(func(s *settings.Settings) { s.MagikaMode = tridModes[i] }) })
 
 	path := func(key string, folder bool, get func(settings.Settings) string, set func(*settings.Settings, string)) {
 		f := &pathField{get: get, set: set}
@@ -115,6 +118,7 @@ func newSettingsPage(u *UI) *settingsPage {
 		sp.paths[key] = f
 	}
 	path("trid_path", false, func(s settings.Settings) string { return s.TrIDPath }, func(s *settings.Settings, v string) { s.TrIDPath = v })
+	path("magika_path", false, func(s settings.Settings) string { return s.MagikaPath }, func(s *settings.Settings, v string) { s.MagikaPath = v })
 	path("sevenzip_path", false, func(s settings.Settings) string { return s.SevenZipPath }, func(s *settings.Settings, v string) { s.SevenZipPath = v })
 	path("ffprobe_path", false, func(s settings.Settings) string { return s.FFprobePath }, func(s *settings.Settings, v string) { s.FFprobePath = v })
 	path("ffmpeg_path", false, func(s settings.Settings) string { return s.FFmpegPath }, func(s *settings.Settings, v string) { s.FFmpegPath = v })
@@ -150,6 +154,9 @@ func (sp *settingsPage) load() {
 	sp.checks["auto_carve"].SetChecked(s.AutoCarve)
 	sp.checks["checksums"].SetChecked(s.Checksums)
 	for i, m := range tridModes {
+		if m == s.MagikaMode {
+			sp.magikaMode.SetSelected(i)
+		}
 		if m == s.TrIDMode {
 			sp.tridMode.SetSelected(i)
 		}
@@ -215,8 +222,9 @@ func (sp *settingsPage) content() giode.Element {
 		sectionTitle("scan", "Identification"),
 		sp.numberRow("head_kb", "Bytes read from each file", "The start of a file holds its signature. The disc-image check reads up to 36 KB in, so 40 KB is the minimum. Larger samples help tell text formats apart."),
 		sp.numberRow("entropy_sample_mb", "Entropy sample", "Data sampled across the file to estimate how random it is."),
+		sp.row("Ask Magika", "Google's deep-learning model: fast, and strong on text, code and files without a header. Also asked about generic plain text.", sp.magikaMode, ""),
 		sp.row("Ask TrID", "TrID has 18,000+ definitions but is slower than the built-in engines.", sp.tridMode, ""),
-		sp.numberRow("trid_trust_pct", "Skip TrID above", "Built-in confidence at which TrID isn't asked."),
+		sp.numberRow("trid_trust_pct", "Skip Magika and TrID above", "Built-in confidence at which neither is asked."),
 		sp.numberRow("trid_timeout_sec", "TrID time limit", "Give up on TrID after this long."),
 	)
 	explore := card(giode.Styles{},
@@ -240,6 +248,7 @@ func (sp *settingsPage) content() giode.Element {
 		sectionTitle("cpu", "External tools"),
 		giode.Text("Leave empty to find each tool automatically (environment variable, next to AnyFile, PATH, common install folders).", txtw(12.5, colMuted, giode.Styles{LineHeight: 18})),
 		sp.pathRow("trid_path", "TrID", "trid.exe, with triddefs.trd in the same folder."),
+		sp.pathRow("magika_path", "Magika", "The magika command (pip install magika, or cargo install magika-cli)."),
 		sp.pathRow("sevenzip_path", "7-Zip", "7z.exe"),
 		sp.pathRow("ffprobe_path", "ffprobe", "Needed with FFmpeg for media streams."),
 		sp.pathRow("ffmpeg_path", "FFmpeg", "Copies streams out without re-encoding."),

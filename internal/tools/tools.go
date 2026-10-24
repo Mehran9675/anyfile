@@ -24,9 +24,9 @@ type Tool struct {
 func (t Tool) Found() bool { return t.Path != "" }
 
 var (
-	mu                              sync.Mutex
-	loaded                          bool
-	trid, sevenZip, ffprobe, ffmpeg Tool
+	mu                                      sync.Mutex
+	loaded                                  bool
+	trid, magika, sevenZip, ffprobe, ffmpeg Tool
 )
 
 // Reload finds the tools again, after the paths in the settings change.
@@ -39,6 +39,9 @@ func Reload() {
 
 // TrID returns the TrID command-line identifier.
 func TrID() Tool { load(); mu.Lock(); defer mu.Unlock(); return trid }
+
+// Magika returns Google's Magika content-type classifier.
+func Magika() Tool { load(); mu.Lock(); defer mu.Unlock(); return magika }
 
 // SevenZip returns the 7-Zip console program.
 func SevenZip() Tool { load(); mu.Lock(); defer mu.Unlock(); return sevenZip }
@@ -54,7 +57,7 @@ func All() []Tool {
 	load()
 	mu.Lock()
 	defer mu.Unlock()
-	return []Tool{trid, sevenZip, ffprobe, ffmpeg}
+	return []Tool{trid, magika, sevenZip, ffprobe, ffmpeg}
 }
 
 func load() {
@@ -73,6 +76,7 @@ func load() {
 				trid.Path = ""
 			}
 		}
+		magika = Tool{Name: "Magika", Path: find(cfg.MagikaPath, "ANYFILE_MAGIKA", []string{"magika"}, magikaDirs())}
 		sevenZip = Tool{Name: "7-Zip", Path: find(cfg.SevenZipPath, "ANYFILE_7Z", []string{"7z", "7zz", "7za"}, sevenZipDirs())}
 		ffprobe = Tool{Name: "ffprobe", Path: find(cfg.FFprobePath, "ANYFILE_FFPROBE", []string{"ffprobe"}, nil)}
 		ffmpeg = Tool{Name: "FFmpeg", Path: find(cfg.FFmpegPath, "ANYFILE_FFMPEG", []string{"ffmpeg"}, nil)}
@@ -147,4 +151,23 @@ func sevenZipDirs() []string {
 		"/opt/homebrew/bin",
 		"/usr/local/bin",
 	}
+}
+
+// magikaDirs are where pip and cargo put the magika command when their
+// script folders aren't on PATH.
+func magikaDirs() []string {
+	home, _ := os.UserHomeDir()
+	dirs := []string{filepath.Join(home, ".cargo", "bin"), filepath.Join(home, ".local", "bin"), "/opt/homebrew/bin", "/usr/local/bin"}
+	for _, base := range []string{os.Getenv("APPDATA"), os.Getenv("LOCALAPPDATA")} {
+		if base == "" {
+			continue
+		}
+		// Per-user pip installs: %APPDATA%\Python\Python3xx\Scripts and
+		// the Microsoft Store layout under %LOCALAPPDATA%.
+		matches, _ := filepath.Glob(filepath.Join(base, "Python", "Python3*", "Scripts"))
+		dirs = append(dirs, matches...)
+		matches, _ = filepath.Glob(filepath.Join(base, "Programs", "Python", "Python3*", "Scripts"))
+		dirs = append(dirs, matches...)
+	}
+	return dirs
 }

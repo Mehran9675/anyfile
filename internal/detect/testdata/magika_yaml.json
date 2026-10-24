@@ -1,0 +1,33 @@
+[
+  {
+    "path": "config1",
+    "result": {
+      "status": "ok",
+      "value": {
+        "dl": {
+          "description": "YAML source",
+          "extensions": [
+            "yml",
+            "yaml"
+          ],
+          "group": "code",
+          "is_text": true,
+          "label": "yaml",
+          "mime_type": "application/x-yaml"
+        },
+        "output": {
+          "description": "YAML source",
+          "extensions": [
+            "yml",
+            "yaml"
+          ],
+          "group": "code",
+          "is_text": true,
+          "label": "yaml",
+          "mime_type": "application/x-yaml"
+        },
+        "score": 0.9990000128746033
+      }
+    }
+  }
+]

@@ -21,8 +21,8 @@ type inspector struct {
 	node   *session.Node
 	root   *session.Node
 
-	view_, with, save, extract, reveal, deep, trid *button.Button
-	copyBtns                                       map[string]giode.Element
+	view_, with, save, extract, reveal, deep, trid, magika *button.Button
+	copyBtns                                               map[string]giode.Element
 }
 
 func newInspector(u *UI) *inspector {
@@ -48,6 +48,7 @@ func newInspector(u *UI) *inspector {
 	in.reveal = newBtn("reveal", "Show in folder", btnGhost, act((*session.Session).Reveal))
 	in.deep = newBtn("scan", "Deep scan", btnGhost, act((*session.Session).DeepScan))
 	in.trid = newBtn("sparkles", "Ask TrID", btnGhost, act((*session.Session).AskTrID))
+	in.magika = newBtn("brain", "Ask Magika", btnGhost, act((*session.Session).AskMagika))
 	for _, k := range []string{"MD5", "SHA-1", "SHA-256"} {
 		k := k
 		in.copyBtns[k] = giode.CopyButton(func() string {
@@ -80,7 +81,7 @@ func (in *inspector) content() giode.Element {
 		if d := in.details(n); d != nil {
 			sections = append(sections, d)
 		}
-		sections = append(sections, in.tridCard(n))
+		sections = append(sections, in.magikaCard(n), in.tridCard(n))
 		if h := in.hashes(n); h != nil {
 			sections = append(sections, h)
 		}
@@ -205,11 +206,14 @@ func (in *inspector) actions(n *session.Node) giode.Element {
 	}
 	if !n.Dir {
 		b = append(b, giode.Box(giode.Styles{Width: 6}), in.reveal, in.deep)
+		if tools.Magika().Found() {
+			b = append(b, in.magika)
+		}
 		if tools.TrID().Found() {
 			b = append(b, in.trid)
 		}
 	}
-	for _, x := range []*button.Button{in.view_, in.with, in.save, in.extract, in.deep, in.trid} {
+	for _, x := range []*button.Button{in.view_, in.with, in.save, in.extract, in.deep, in.trid, in.magika} {
 		x.Disabled(n.Busy != "")
 	}
 	return giode.Row(giode.Styles{Width: -1, Gap: 8, Align: giode.AlignCenter}, b...)
@@ -284,9 +288,18 @@ func engineText(r *detect.Result) string {
 		return "Built-in structural analysis"
 	case detect.SrcTrID:
 		return "TrID"
+	case detect.SrcMagika:
+		return "Magika (deep-learning model)"
+	}
+	var asked []string
+	if r.MagikaRan {
+		asked = append(asked, "Magika")
 	}
 	if r.TrIDRan {
-		return "AnyFile heuristics (TrID was consulted)"
+		asked = append(asked, "TrID")
+	}
+	if len(asked) > 0 {
+		return "AnyFile heuristics (" + strings.Join(asked, " and ") + " consulted)"
 	}
 	return "AnyFile heuristics"
 }
@@ -341,6 +354,49 @@ func (in *inspector) details(n *session.Node) giode.Element {
 			Padding: giode.SymmetricInset(12, 9), Background: colSurface2, BorderRadius: 9},
 			giode.Box(giode.Styles{Padding: giode.Inset{Top: 2}}, icon("info", colAccent2, 14)),
 			giode.Box(giode.Styles{FlexGrow: 1, Width: -1}, giode.Text(s, txtw(12.5, colTextSoft, giode.Styles{LineHeight: 18})))))
+	}
+	return card(giode.Styles{}, out...)
+}
+
+func (in *inspector) magikaCard(n *session.Node) giode.Element {
+	r := n.Result
+	out := []giode.Element{sectionTitle("brain", "Magika")}
+	muted := func(s string) giode.Element {
+		return giode.Text(s, txtw(12.5, colMuted, giode.Styles{LineHeight: 18}))
+	}
+	switch {
+	case r == nil:
+		out = append(out, muted("Waiting for the built-in analysis…"))
+	case !tools.Magika().Found():
+		out = append(out, muted("Magika is not installed. It is Google's deep-learning content-type model (200+ types, strong on text, code and files without a header). Install it with \"pip install magika\" or set its path in Settings."))
+	case !r.MagikaRan:
+		out = append(out, muted("Not needed: the built-in engines were confident. Use \"Ask Magika\" for a second opinion."))
+	default:
+		v := r.Magika
+		label := v.Description
+		if !v.Known() {
+			label = "No confident answer"
+		}
+		out = append(out,
+			kv("Verdict", label, false),
+			giode.Row(giode.Styles{Width: -1, Gap: 12, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
+				giode.Box(giode.Styles{Width: 132}, giode.Text("Model score", txt(13, colMuted))),
+				bar(float32(v.Score), confColor(v.Score), 180),
+				giode.Text(fmt.Sprintf("%.0f%%", v.Score*100), txt(12.5, colTextSoft)),
+			),
+		)
+		if v.Known() {
+			out = append(out, kv("Group", v.Group, false), kv("Media type", v.MIME, true))
+			if len(v.Extensions) > 0 {
+				out = append(out, kv("Extensions", "."+strings.Join(v.Extensions, ", ."), false))
+			}
+		}
+		if v.RawLabel != "" && v.RawLabel != v.Label {
+			out = append(out, kv("Model's raw guess", v.RawDescription, false))
+		}
+		if r.Source != detect.SrcMagika && v.Known() {
+			out = append(out, muted("The verdict above comes from a more confident engine; Magika's answer is shown for comparison."))
+		}
 	}
 	return card(giode.Styles{}, out...)
 }

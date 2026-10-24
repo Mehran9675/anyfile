@@ -22,11 +22,13 @@ type Options struct {
 	Name string
 	// ForceTrID runs TrID even when the built-in engines are sure.
 	ForceTrID bool
+	// ForceMagika runs Magika even when the built-in engines are sure.
+	ForceMagika bool
 }
 
 // How much of a file the built-in engines read, the confidence above
-// which TrID is skipped, and when TrID runs at all come from the user's
-// settings. The 64 KiB default sample covers every fixed-offset probe
+// which TrID and Magika are skipped, and when they run at all come from
+// the user's settings. The 64 KiB default sample covers every fixed-offset probe
 // (the deepest is the ISO 9660 descriptor at 0x8001-0x9006) and gives
 // the text classifiers enough lines, in a single read.
 
@@ -63,7 +65,17 @@ func Detect(p string, opt Options) *Result {
 	// 1. Built-in signatures and structural probes.
 	builtin(p, head, opt.Name, r)
 
-	// 2. TrID, only when needed (or asked for).
+	// 2. Magika, only when needed (or asked for). It runs before TrID
+	// because it is fast and strong on text and headerless formats.
+	switch {
+	case opt.ForceMagika, cfg.MagikaMode == settings.TrIDAlways:
+		consultMagika(p, r)
+	case cfg.MagikaMode == settings.TrIDNever:
+	case r.Confidence < cfg.TrIDTrust, genericText(r):
+		consultMagika(p, r)
+	}
+
+	// 3. TrID, only when still needed (or asked for).
 	switch {
 	case opt.ForceTrID, cfg.TrIDMode == settings.TrIDAlways:
 		consultTrID(p, opt.Name, r)
@@ -72,7 +84,7 @@ func Detect(p string, opt Options) *Result {
 		consultTrID(p, opt.Name, r)
 	}
 
-	// 3. Our own fallback when nobody could tell.
+	// 4. Our own fallback when nobody could tell.
 	if r.Label == "" {
 		fallback(f, head, r)
 	}
@@ -80,6 +92,14 @@ func Detect(p string, opt Options) *Result {
 		r.Source = SrcHeuristic
 	}
 	return r
+}
+
+// genericText reports a "Plain text" verdict: confident that the file
+// is text, but not which kind. Magika is good at telling text formats
+// apart (YAML, Markdown, code), so it is consulted; TrID isn't, being
+// weak on text.
+func genericText(r *Result) bool {
+	return r.Category == CatText && r.Ext == "txt" && r.Source == SrcHeuristic
 }
 
 // builtin runs the signature table and the structural refiners.
@@ -224,6 +244,10 @@ func fallback(f *os.File, h []byte, r *Result) {
 	case r.Entropy > 7.95:
 		r.set("Encrypted or compressed data", "bin", "application/octet-stream", CatEncrypted, 0.45, SrcHeuristic)
 		r.note("Near-maximal entropy with no recognisable structure: likely encrypted, compressed with an unknown scheme, or random.")
+		if r.Magika != nil && r.Magika.RawLabel == "randombytes" {
+			r.Confidence = 0.6
+			r.note(fmt.Sprintf("Magika agrees: its model reads the content as random bytes (%.0f%%).", r.Magika.Score*100))
+		}
 	case r.Entropy > 7.2:
 		r.set("Compressed binary data", "bin", "application/octet-stream", CatData, 0.35, SrcHeuristic)
 	default:

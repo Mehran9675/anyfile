@@ -185,6 +185,28 @@ func (s *Session) AskTrID(n *Node) {
 	})
 }
 
+// AskMagika re-identifies n with Magika's opinion included.
+func (s *Session) AskMagika(n *Node) {
+	s.prepare(n, func() {
+		local, name := n.Local, n.Name
+		n.Busy = "Asking Magika…"
+		s.background(func() func(bool) {
+			r := detect.Detect(local, detect.Options{Name: name, ForceMagika: true})
+			return func(current bool) {
+				n.Busy = ""
+				if !current {
+					return
+				}
+				s.version++
+				n.Result = r
+				if !r.MagikaRan {
+					s.say("error", "Magika is not available. Install it (pip install magika) or set its path in Settings.")
+				}
+			}
+		})
+	})
+}
+
 // prepare makes sure n has a file on disk (extracting it from its
 // container if needed) and has been identified, then runs then on the
 // UI goroutine. Concurrent requests for the same node share one job.

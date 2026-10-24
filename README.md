@@ -33,6 +33,7 @@ AnyFile looks for each tool in this order: an environment variable, next to `any
 | Tool | Variable | Notes |
 | --- | --- | --- |
 | TrID | `ANYFILE_TRID` | `triddefs.trd` must sit next to `trid.exe` |
+| Magika | `ANYFILE_MAGIKA` | Google's deep-learning content-type model: `pip install magika` or `cargo install magika-cli`. Asked when the built-in engines aren't sure, and about generic plain text. |
 | 7-Zip | `ANYFILE_7Z` | `7z.exe` |
 | ffprobe / FFmpeg | `ANYFILE_FFPROBE` / `ANYFILE_FFMPEG` | both are needed for media streams |
 | Oodle | `ANYFILE_OODLE` | `oo2core_*_win64.dll`. Games ship it, so AnyFile also looks in the opened file's folder and two levels up. Never bundled (proprietary). |

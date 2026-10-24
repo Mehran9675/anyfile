@@ -42,6 +42,7 @@ const (
 	SrcStructure Source = "Structure"
 	SrcTrID      Source = "TrID"
 	SrcHeuristic Source = "Heuristic"
+	SrcMagika    Source = "Magika"
 )
 
 // Candidate is one possible identification, as reported by TrID.
@@ -75,6 +76,10 @@ type Result struct {
 	Entropy     float64 // bits per byte over a sample, 0..8
 	TrIDRan     bool
 	TrIDMissing bool
+
+	Magika        *MagikaVerdict // Magika's answer, when it ran
+	MagikaRan     bool
+	MagikaMissing bool
 }
 
 func (r *Result) detail(k, v string) {
