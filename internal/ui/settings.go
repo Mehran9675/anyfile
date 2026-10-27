@@ -9,10 +9,10 @@ import (
 	"github.com/mehran9675/anyfile/internal/settings"
 	"github.com/mehran9675/giode"
 	"github.com/mehran9675/giode/components/button"
-	"github.com/mehran9675/giode/components/checkbox"
-	"github.com/mehran9675/giode/components/dropdown"
 	"github.com/mehran9675/giode/components/input"
 	"github.com/mehran9675/giode/components/scroll"
+	"github.com/mehran9675/giode/components/segmented"
+	"github.com/mehran9675/giode/components/toggle"
 )
 
 // settingsPage edits the limits and preferences in package settings.
@@ -21,11 +21,12 @@ type settingsPage struct {
 	u      *UI
 	scroll *scroll.Scroll
 
-	numbers    map[string]*numberField
-	checks     map[string]*checkbox.Checkbox
-	tridMode   *dropdown.Select
-	magikaMode *dropdown.Select
-	paths      map[string]*pathField
+	numbers     map[string]*numberField
+	checks      map[string]*toggle.Switch
+	checkLabels map[string]string
+	tridMode    *segmented.Control
+	magikaMode  *segmented.Control
+	paths       map[string]*pathField
 
 	reset, done, showFile *button.Button
 }
@@ -51,10 +52,10 @@ type pathField struct {
 }
 
 var tridModes = []string{settings.TrIDWhenNeeded, settings.TrIDAlways, settings.TrIDNever}
-var tridModeLabels = []string{"When the built-in engines aren't sure", "For every file", "Never"}
+var tridModeLabels = []string{"If unsure", "Always", "Never"}
 
 func newSettingsPage(u *UI) *settingsPage {
-	sp := &settingsPage{u: u, numbers: map[string]*numberField{}, checks: map[string]*checkbox.Checkbox{}, paths: map[string]*pathField{}}
+	sp := &settingsPage{u: u, numbers: map[string]*numberField{}, checks: map[string]*toggle.Switch{}, checkLabels: map[string]string{}, paths: map[string]*pathField{}}
 	sp.scroll = giode.Scroll(sp.content, giode.Styles{ScrollBar: giode.ScrollBar{ThumbColor: "#ffffff22", Width: 6, Radius: 3}})
 	field := giode.Styles{Background: colSurface2, Color: colText, BorderColor: colBorderHi, BorderRadius: 8, Padding: giode.SymmetricInset(10, 7), FontSize: 13}
 
@@ -78,7 +79,10 @@ func newSettingsPage(u *UI) *settingsPage {
 	num("checksum_max_mb", "MB", func(s settings.Settings) int { return s.ChecksumMaxMB }, func(s *settings.Settings, v int) { s.ChecksumMaxMB = v })
 
 	check := func(key, label string, get func(settings.Settings) bool, set func(*settings.Settings, bool)) {
-		c := giode.Input.Checkbox(label, giode.Styles{Color: colText, Background: colAccent, BorderColor: colBorderHi})
+		// Unlabelled, so it lines up on the right like the other controls;
+		// checkRow draws the label.
+		c := giode.Input.Switch("", giode.Styles{Background: colAccent, BorderColor: colBorderHi})
+		sp.checkLabels[key] = label
 		c.SetChecked(get(settings.Get()))
 		c.OnChange(func(v bool) { sp.apply(func(s *settings.Settings) { set(s, v) }) })
 		sp.checks[key] = c
@@ -88,9 +92,12 @@ func newSettingsPage(u *UI) *settingsPage {
 	check("checksums", "Compute MD5, SHA-1 and SHA-256 when a file is selected",
 		func(s settings.Settings) bool { return s.Checksums }, func(s *settings.Settings, v bool) { s.Checksums = v })
 
-	sp.tridMode = giode.Input.Select(field.With(giode.Styles{Width: 290}), tridModeLabels...).
+	// Width -1 inside a fixed-width box (see segmentedBox): giode's
+	// Segmented measures each segment as wide as the space it's given.
+	modes := giode.Styles{Width: -1, Background: colSurface2, BorderColor: colRaised, Color: colText, FontSize: 13}
+	sp.tridMode = giode.Input.Segmented(tridModeLabels...).Styles(modes).
 		OnChange(func(i int) { sp.apply(func(s *settings.Settings) { s.TrIDMode = tridModes[i] }) })
-	sp.magikaMode = giode.Input.Select(field.With(giode.Styles{Width: 290}), tridModeLabels...).
+	sp.magikaMode = giode.Input.Segmented(tridModeLabels...).Styles(modes).
 		OnChange(func(i int) { sp.apply(func(s *settings.Settings) { s.MagikaMode = tridModes[i] }) })
 
 	path := func(key string, folder bool, get func(settings.Settings) string, set func(*settings.Settings, string)) {
@@ -222,8 +229,8 @@ func (sp *settingsPage) content() giode.Element {
 		sectionTitle("scan", "Identification"),
 		sp.numberRow("head_kb", "Bytes read from each file", "The start of a file holds its signature. The disc-image check reads up to 36 KB in, so 40 KB is the minimum. Larger samples help tell text formats apart."),
 		sp.numberRow("entropy_sample_mb", "Entropy sample", "Data sampled across the file to estimate how random it is."),
-		sp.row("Ask Magika", "Google's deep-learning model: fast, and strong on text, code and files without a header. Also asked about generic plain text.", sp.magikaMode, ""),
-		sp.row("Ask TrID", "TrID has 18,000+ definitions but is slower than the built-in engines.", sp.tridMode, ""),
+		sp.row("Ask Magika", "Google's deep-learning model: fast, and strong on text, code and files without a header. Also asked about generic plain text.", segmentedBox(sp.magikaMode), ""),
+		sp.row("Ask TrID", "TrID has 18,000+ definitions but is slower than the built-in engines.", segmentedBox(sp.tridMode), ""),
 		sp.numberRow("trid_trust_pct", "Skip Magika and TrID above", "Built-in confidence at which neither is asked."),
 		sp.numberRow("trid_timeout_sec", "TrID time limit", "Give up on TrID after this long."),
 	)
@@ -281,10 +288,7 @@ func (sp *settingsPage) numberRow(key, label, help string) giode.Element {
 }
 
 func (sp *settingsPage) checkRow(key, help string) giode.Element {
-	return giode.Stack(giode.Styles{Width: -1, Gap: 3, Padding: giode.SymmetricInset(0, 4)},
-		sp.checks[key],
-		giode.Box(giode.Styles{Padding: giode.Inset{Left: 28}}, giode.Text(help, txtw(12, colMuted, giode.Styles{LineHeight: 17}))),
-	)
+	return sp.row(sp.checkLabels[key], help, sp.checks[key], "")
 }
 
 func (sp *settingsPage) pathRow(key, label, help string) giode.Element {
@@ -301,4 +305,10 @@ func (sp *settingsPage) pathRow(key, label, help string) giode.Element {
 			icon("alert", colDanger, 13), giode.Text(f.err, txt(12, colDanger))))
 	}
 	return giode.Stack(giode.Styles{Width: -1, Gap: 8, Padding: giode.SymmetricInset(0, 4)}, kids...)
+}
+
+// segmentedBox gives a segmented control a fixed width to divide among
+// its segments.
+func segmentedBox(c giode.Element) giode.Element {
+	return giode.Box(giode.Styles{Width: 330}, c)
 }

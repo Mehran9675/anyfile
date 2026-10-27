@@ -38,6 +38,7 @@ func (u *UI) openPath(p string) {
 		}
 	}
 	t := &tab{sess: session.New(u.app.Post, u.toast)}
+	t.sess.KeepAwakeWith(u.app.KeepAlive)
 	t.tree = newTreeView(u, t.sess)
 	t.sess.OnExpand(t.tree.expand)
 	t.sess.Open(p)

@@ -42,13 +42,23 @@ The status bar shows which engines were found.
 
 ## Build and run
 
+AnyFile is built with the [giode CLI](https://github.com/Mehran9675/giode-cli), configured by `giode.toml`:
+
 ```bash
-go build -ldflags="-H windowsgui" -o bin/anyfile.exe ./cmd/anyfile
+go install github.com/mehran9675/giode-cli/cmd/giode@latest
 ```
 
 ```bash
-bin/anyfile.exe path/to/file
+giode run
 ```
+
+`giode run` starts AnyFile on this computer; pass a file to inspect after `--`, as in `giode run desktop -- path/to/file`. To build packages into `dist/`:
+
+```bash
+giode build windows windows-installer
+```
+
+Use `macos` on a Mac and `linux` on Linux (Gio needs cgo there). `giode doctor` lists what each target needs; the Windows installer needs [NSIS](https://nsis.sourceforge.io). Without the CLI, `go build -ldflags="-H windowsgui" ./cmd/anyfile` still works, minus the icon and version info.
 
 You can also drop a file onto the window or use **Open file**. To test the engines without the UI:
 

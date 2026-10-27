@@ -1,0 +1,30 @@
+# giode.toml configures how the giode CLI builds this app.
+# Reference: https://github.com/mehran9675/giode-cli#giodetoml
+#
+# The release workflow sets version and the version in ldflags from the
+# release tag; the values here are for local builds.
+
+[app]
+name = "AnyFile"
+id = "com.mehran9675.anyfile"
+version = "0.0.0"
+build = 1
+icon = "assets/icon.png"
+package = "./cmd/anyfile"
+publisher = "Mehran9675"
+description = "Find out what any file really is, explore what's inside, and open each part in your own apps."
+website = "https://github.com/Mehran9675/anyfile"
+ldflags = "-s -w -X main.version=dev"
+
+[macos]
+min_os = 11
+
+[windows]
+arch = "amd64"
+
+[windows.installer]
+per_machine = false
+desktop_shortcut = true
+
+[linux]
+categories = ["Utility", "System"]

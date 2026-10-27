@@ -88,8 +88,10 @@ func (in *inspector) content() giode.Element {
 	} else {
 		sections = append(sections, in.folderCard(n))
 	}
-	return giode.Box(giode.Styles{Width: -1, Justify: giode.JustifyCenter, Padding: giode.Inset{Top: 22, Right: 26, Bottom: 30, Left: 26}},
-		giode.Stack(giode.Styles{Width: -1, MaxWidth: 940, Gap: 16}, sections...))
+	// Everything in the inspector can be selected and copied: paths,
+	// hashes, media types, notes. Buttons stay clickable.
+	return giode.SelectionArea("inspector", giode.Box(giode.Styles{Width: -1, Justify: giode.JustifyCenter, Padding: giode.Inset{Top: 22, Right: 26, Bottom: 30, Left: 26}},
+		giode.Stack(giode.Styles{Width: -1, MaxWidth: 940, Gap: 16}, sections...)))
 }
 
 func (in *inspector) header(n *session.Node) giode.Element {

@@ -220,7 +220,7 @@ func (t *treeView) row(tn giode.TreeNode, s giode.TreeRowState) giode.Element {
 	case n.Busy != "":
 		kids = append(kids, giode.Spinner(giode.Styles{Width: 13, Height: 13, Color: colAccent}))
 	case !n.Dir && badgeFor(n) != "":
-		kids = append(kids, giode.Text(badgeFor(n), txtw(10.5, c, giode.Styles{FontWeight: giode.FontWeightBold})))
+		kids = append(kids, giode.Badge(badgeFor(n), giode.Styles{Background: color(c + "26"), Color: color(c), FontSize: 10}))
 	}
 	if n.Size >= 0 {
 		sizeColor := colFaint

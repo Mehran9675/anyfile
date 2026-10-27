@@ -2,3 +2,4 @@
 *.exe
 *.syso
 .idea/
+/dist/

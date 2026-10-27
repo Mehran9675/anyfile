@@ -38,23 +38,20 @@ func newBtn(iconName, label string, kind btnKind, onClick func()) *button.Button
 	return b.Styles(st).Icon(icon(iconName, "", 16)).OnClick(onClick)
 }
 
-// chip is a small rounded label.
+// chip is a small rounded label tinted with color.
 func chip(label, color string, iconName string) giode.Element {
-	kids := []giode.Element{}
+	c := giode.Chip(label, giode.Styles{
+		Background:  properties.Color(color + "1f"),
+		BorderColor: properties.Color(color + "40"),
+		Color:       properties.Color(color),
+		FontSize:    11.5,
+		Padding:     giode.SymmetricInset(9, 3),
+		Gap:         5,
+	})
 	if iconName != "" {
-		kids = append(kids, icon(iconName, color, 12))
+		c.Icon(icon(iconName, color, 12))
 	}
-	kids = append(kids, giode.Text(label, txtw(11.5, color, giode.Styles{FontWeight: giode.FontWeightMedium})))
-	return giode.Row(giode.Styles{
-		Align:        giode.AlignCenter,
-		Gap:          5,
-		Wrap:         giode.WrapNoWrap,
-		Padding:      giode.SymmetricInset(9, 3),
-		BorderRadius: 99,
-		Background:   properties.Color(color + "1f"),
-		BorderWidth:  1,
-		BorderColor:  properties.Color(color + "40"),
-	}, kids...)
+	return c
 }
 
 // card is a rounded panel.
@@ -75,7 +72,7 @@ func card(st giode.Styles, kids ...giode.Element) giode.Element {
 func sectionTitle(iconName, s string) giode.Element {
 	return giode.Row(giode.Styles{Align: giode.AlignCenter, Gap: 8, Wrap: giode.WrapNoWrap},
 		icon(iconName, colMuted, 15),
-		giode.Text(s, txtw(12, colMuted, giode.Styles{FontWeight: giode.FontWeightBold, TextTransform: giode.TextTransformUppercase})),
+		giode.Text(s, txtw(12, colMuted, giode.Styles{FontWeight: giode.FontWeightSemiBold, TextTransform: giode.TextTransformUppercase})),
 	)
 }
 

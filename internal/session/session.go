@@ -31,6 +31,7 @@ type Session struct {
 	post   func(func())           // runs a function on the UI goroutine
 	toast  func(kind, msg string) // safe from any goroutine
 	expand func(*Node)            // asks the UI to open a node
+	awake  func(reason string) (release func(), err error)
 
 	root     *Node
 	selected *Node
@@ -45,6 +46,10 @@ type Session struct {
 func New(post func(func()), toast func(kind, msg string)) *Session {
 	return &Session{post: post, toast: toast}
 }
+
+// KeepAwakeWith sets the function that keeps the computer from going to
+// sleep during long jobs (giode's App.KeepAlive).
+func (s *Session) KeepAwakeWith(fn func(reason string) (func(), error)) { s.awake = fn }
 
 // OnExpand sets the function asked to open a node in the view: the
 // opened file once explored, and lone folders inside containers.
@@ -530,7 +535,14 @@ func (s *Session) ExtractAll(n *Node, dir string) {
 	}
 	out := uniquePath(filepath.Join(dir, base))
 	n.Busy = fmt.Sprintf("Extracting %d files…", len(jobs))
+	release := func() {}
+	if s.awake != nil {
+		if r, err := s.awake("Extracting files"); err == nil {
+			release = r
+		}
+	}
 	s.background(func() func(bool) {
+		defer release()
 		failed := 0
 		for _, j := range jobs {
 			dst, err := explore.SafeJoin(out, j.rel)

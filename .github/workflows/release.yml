@@ -1,21 +1,28 @@
 name: Release
 
-# Builds AnyFile for Windows, macOS and Linux on x86-64 and ARM64 when a
-# GitHub release is published, and attaches the packages to it.
+# Builds AnyFile with the giode CLI for Windows (x86-64 and ARM64, zip
+# and installer), macOS (one universal app) and Linux (x86-64 and ARM64)
+# when a GitHub release is published, and attaches the packages to it.
 on:
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to build and upload to
+        description: Release tag to build (and attach to, when publishing)
         required: true
+      publish:
+        description: Attach the packages to the release
+        type: boolean
+        default: true
 
 permissions:
   contents: write
 
 env:
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  # The giode CLI, pinned so releases build reproducibly.
+  GIODE_CLI: github.com/mehran9675/giode-cli/cmd/giode@894cd6e
 
 jobs:
   test:
@@ -28,7 +35,7 @@ jobs:
           go-version-file: go.mod
       # The engines and the session have no GUI dependencies.
       - run: go vet ./internal/carve ./internal/cfb ./internal/detect ./internal/explore/... ./internal/oggopus ./internal/oodle ./internal/session ./internal/tools ./cmd/anyprobe
-      - run: go test ./internal/carve ./internal/detect ./internal/oggopus ./internal/session
+      - run: go test ./internal/carve ./internal/detect ./internal/oggopus ./internal/session ./internal/settings
 
   windows:
     name: Windows ${{ matrix.arch }}
@@ -37,46 +44,34 @@ jobs:
     strategy:
       matrix:
         arch: [amd64, arm64]
-    env:
-      GOOS: windows
-      GOARCH: ${{ matrix.arch }}
-      CGO_ENABLED: "0"
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Embed icon and version info
-        shell: bash
-        working-directory: cmd/anyfile
+      - name: Install the giode CLI
+        run: go install "$GIODE_CLI" && echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Stamp the version
+        run: .github/scripts/stamp-version.sh
+      - name: Build app and installer
         run: |
-          # Windows wants a numeric version: v1.2.3-beta becomes 1.2.3.
-          VER="${TAG#v}"; VER="${VER%%-*}"
-          # Build the tool for the runner itself (GOARCH here is the
-          # target, and an arm64 go-winres can't run on an x64 runner);
-          # --arch still makes it produce resources for the target.
-          env -u GOOS -u GOARCH go run github.com/tc-hib/go-winres@v0.3.3 simply \
-            --arch "$GOARCH" \
-            --icon ../../internal/ui/assets/icon.png \
-            --manifest gui \
-            --product-name AnyFile \
-            --file-description "AnyFile file inspector" \
-            --product-version "$VER" \
-            --file-version "$VER"
-      - name: Build
-        shell: bash
-        run: |
-          mkdir -p dist/pkg
-          go build -trimpath -ldflags "-s -w -H windowsgui -X main.version=$TAG" -o dist/pkg/AnyFile.exe ./cmd/anyfile
-          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/pkg/anyprobe.exe ./cmd/anyprobe
-          cp README.md dist/pkg/
+          giode doctor || true
+          giode build -arch ${{ matrix.arch }} windows windows-installer
+          CGO_ENABLED=0 GOARCH=${{ matrix.arch }} go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/windows/anyprobe.exe ./cmd/anyprobe
       - name: Package
-        shell: pwsh
-        run: Compress-Archive -Path dist/pkg/* -DestinationPath "dist/AnyFile-$env:TAG-windows-$env:GOARCH.zip"
+        run: |
+          mkdir -p out pkg
+          cp dist/windows/AnyFile.exe dist/windows/anyprobe.exe README.md pkg/
+          (cd pkg && 7z a -tzip "../out/AnyFile-$TAG-windows-${{ matrix.arch }}.zip" . > /dev/null)
+          cp dist/windows/*-setup.exe "out/AnyFile-$TAG-windows-${{ matrix.arch }}-setup.exe"
+          ls -la out
       - uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}
-          path: dist/*.zip
+          path: out/*
 
   linux:
     name: Linux ${{ matrix.arch }}
@@ -100,101 +95,63 @@ jobs:
           sudo apt-get install -y gcc pkg-config libwayland-dev libx11-dev libx11-xcb-dev \
             libxkbcommon-x11-dev libgles2-mesa-dev libegl1-mesa-dev libffi-dev \
             libxcursor-dev libvulkan-dev
+      - name: Install the giode CLI
+        run: go install "$GIODE_CLI" && echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Stamp the version
+        run: .github/scripts/stamp-version.sh
       - name: Build
-        env:
-          CGO_ENABLED: "1"
         run: |
-          mkdir -p dist/AnyFile
-          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/AnyFile/anyfile ./cmd/anyfile
-          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/AnyFile/anyprobe ./cmd/anyprobe
-          cp README.md internal/ui/assets/icon.png dist/AnyFile/
-          cat > dist/AnyFile/anyfile.desktop <<EOF
-          [Desktop Entry]
-          Type=Application
-          Name=AnyFile
-          Comment=Find out what any file really is and explore what's inside
-          Exec=anyfile %f
-          Icon=anyfile
-          Categories=Utility;
-          EOF
+          giode build linux
+          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/linux/anyprobe ./cmd/anyprobe
       - name: Package
-        run: tar -C dist -czf "dist/AnyFile-$TAG-linux-${{ matrix.arch }}.tar.gz" AnyFile
+        run: |
+          mkdir -p out && cp README.md dist/linux/
+          mv dist/linux dist/AnyFile
+          tar -C dist -czf "out/AnyFile-$TAG-linux-${{ matrix.arch }}.tar.gz" AnyFile
       - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}
-          path: dist/*.tar.gz
+          path: out/*
 
   macos:
-    name: macOS ${{ matrix.arch }}
+    name: macOS universal
     needs: test
-    # Apple Silicon runner; the Intel build cross-compiles with clang.
     runs-on: macos-latest
-    strategy:
-      matrix:
-        include:
-          - arch: arm64
-            clang_arch: arm64
-          - arch: amd64
-            clang_arch: x86_64
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Install the giode CLI
+        run: go install "$GIODE_CLI" && echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Stamp the version
+        run: .github/scripts/stamp-version.sh
       - name: Build
-        env:
-          CGO_ENABLED: "1"
-          GOOS: darwin
-          GOARCH: ${{ matrix.arch }}
-          CC: clang -arch ${{ matrix.clang_arch }}
-          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
-          mkdir -p dist
-          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/anyfile ./cmd/anyfile
-          go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/anyprobe ./cmd/anyprobe
-      - name: Make app bundle
-        run: |
-          APP=dist/AnyFile.app
-          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-          cp dist/anyfile dist/anyprobe "$APP/Contents/MacOS/"
-          ICONSET=dist/AnyFile.iconset
-          mkdir -p "$ICONSET"
-          for s in 16 32 128 256; do
-            sips -z $s $s internal/ui/assets/icon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
-            d=$((s * 2))
-            sips -z $d $d internal/ui/assets/icon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+          giode build macos
+          # anyprobe as one universal binary next to the app's executable.
+          for a in arm64 amd64; do
+            CGO_ENABLED=0 GOARCH=$a go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o "dist/anyprobe-$a" ./cmd/anyprobe
           done
-          iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AnyFile.icns"
-          cat > "$APP/Contents/Info.plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleName</key><string>AnyFile</string>
-            <key>CFBundleDisplayName</key><string>AnyFile</string>
-            <key>CFBundleIdentifier</key><string>com.mehran9675.anyfile</string>
-            <key>CFBundleExecutable</key><string>anyfile</string>
-            <key>CFBundleIconFile</key><string>AnyFile</string>
-            <key>CFBundlePackageType</key><string>APPL</string>
-            <key>CFBundleShortVersionString</key><string>${TAG#v}</string>
-            <key>CFBundleVersion</key><string>${TAG#v}</string>
-            <key>LSMinimumSystemVersion</key><string>11.0</string>
-            <key>NSHighResolutionCapable</key><true/>
-          </dict>
-          </plist>
-          EOF
-          # Ad-hoc signature: required for arm64 binaries to launch at all.
-          codesign --force --deep --sign - "$APP"
+          lipo -create -output dist/macos/AnyFile.app/Contents/MacOS/anyprobe dist/anyprobe-arm64 dist/anyprobe-amd64
+          lipo -info dist/macos/AnyFile.app/Contents/MacOS/*
+          # Ad-hoc signature: arm64 binaries must be signed to launch at all.
+          codesign --force --deep --sign - dist/macos/AnyFile.app
       - name: Package
-        run: ditto -c -k --keepParent dist/AnyFile.app "dist/AnyFile-$TAG-macos-${{ matrix.arch }}.zip"
+        run: |
+          mkdir -p out
+          ditto -c -k --keepParent dist/macos/AnyFile.app "out/AnyFile-$TAG-macos-universal.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ matrix.arch }}
-          path: dist/*.zip
+          name: macos-universal
+          path: out/*
 
   publish:
     name: Attach to release
     needs: [windows, linux, macos]
+    if: github.event_name == 'release' || inputs.publish
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
