@@ -22,7 +22,7 @@ permissions:
 env:
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
   # The giode CLI, pinned so releases build reproducibly.
-  GIODE_CLI: github.com/mehran9675/giode-cli/cmd/giode@894cd6e
+  GIODE_CLI: github.com/mehran9675/giode-cli/cmd/giode@2636e1f
 
 jobs:
   test:

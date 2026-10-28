@@ -38,6 +38,8 @@ github.com/mehran9675/giode v0.1.0-alpha.2 h1:82UkbmDkMP1bevjhyRzWHIdmMINsPC1/+8
 github.com/mehran9675/giode v0.1.0-alpha.2/go.mod h1:cx2MKQ/6fRINFDP6X5P65y3Td77VyUfcnMqbPefn49s=
 github.com/mehran9675/giode v0.1.4-alpha.1 h1:UlsO1H/7EYw7MxTwVm5yzMAtajiu8ASQ669cCvjyg80=
 github.com/mehran9675/giode v0.1.4-alpha.1/go.mod h1:BSCQZdDJ7+DCEUPSK0W3rnuoLJCieq9o5tIgPBH3GLE=
+github.com/mehran9675/giode v0.1.6-alpha.1 h1:qLYtbqA+9nDwCxj8xZCUq98weIq64xOsdjoYVG7UhOM=
+github.com/mehran9675/giode v0.1.6-alpha.1/go.mod h1:BSCQZdDJ7+DCEUPSK0W3rnuoLJCieq9o5tIgPBH3GLE=
 github.com/ncruces/zenity v0.10.15 h1:UaHekkxwt7QjoZmMWtzhqSEtQT97/Cux6FDBWwfyuqk=
 github.com/ncruces/zenity v0.10.15/go.mod h1:45d81tt+vF/UjBjlWE/vvE0oD0hWuHUQld4vPbA4VxE=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
