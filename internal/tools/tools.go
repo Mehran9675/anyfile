@@ -1,6 +1,7 @@
 // Package tools locates the optional external programs AnyFile can
 // delegate to: TrID for identification, 7-Zip for exotic archives and
-// FFmpeg for media streams. Every tool is optional; the app degrades to
+// FFmpeg for media streams. Package install can download each of them
+// into ManagedDir. Every tool is optional; the app degrades to
 // its built-in engines when one is missing.
 package tools
 
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/mehran9675/anyfile/internal/settings"
@@ -22,6 +24,12 @@ type Tool struct {
 
 // Found reports whether the tool is available.
 func (t Tool) Found() bool { return t.Path != "" }
+
+// Managed reports whether the tool is AnyFile's own install of it.
+func (t Tool) Managed() bool {
+	rel, err := filepath.Rel(ManagedDir(), t.Path)
+	return t.Path != "" && err == nil && !strings.HasPrefix(rel, "..")
+}
 
 var (
 	mu                                      sync.Mutex
@@ -69,31 +77,41 @@ func load() {
 	loaded = true
 	cfg := settings.Get()
 	func() {
-		trid = Tool{Name: "TrID", Path: find(cfg.TrIDPath, "ANYFILE_TRID", []string{"trid"}, tridDirs())}
+		trid = Tool{Name: "TrID", Path: find(cfg.TrIDPath, "ANYFILE_TRID", "trid", []string{"trid"}, tridDirs())}
 		// TrID is useless without its definitions database.
 		if trid.Path != "" {
 			if _, err := os.Stat(filepath.Join(filepath.Dir(trid.Path), "triddefs.trd")); err != nil {
 				trid.Path = ""
 			}
 		}
-		magika = Tool{Name: "Magika", Path: find(cfg.MagikaPath, "ANYFILE_MAGIKA", []string{"magika"}, magikaDirs())}
-		sevenZip = Tool{Name: "7-Zip", Path: find(cfg.SevenZipPath, "ANYFILE_7Z", []string{"7z", "7zz", "7za"}, sevenZipDirs())}
-		ffprobe = Tool{Name: "ffprobe", Path: find(cfg.FFprobePath, "ANYFILE_FFPROBE", []string{"ffprobe"}, nil)}
-		ffmpeg = Tool{Name: "FFmpeg", Path: find(cfg.FFmpegPath, "ANYFILE_FFMPEG", []string{"ffmpeg"}, nil)}
+		magika = Tool{Name: "Magika", Path: find(cfg.MagikaPath, "ANYFILE_MAGIKA", "magika", []string{"magika"}, magikaDirs())}
+		sevenZip = Tool{Name: "7-Zip", Path: find(cfg.SevenZipPath, "ANYFILE_7Z", "7zip", []string{"7z", "7zz", "7za"}, sevenZipDirs())}
+		ffprobe = Tool{Name: "ffprobe", Path: find(cfg.FFprobePath, "ANYFILE_FFPROBE", "ffmpeg", []string{"ffprobe"}, nil)}
+		ffmpeg = Tool{Name: "FFmpeg", Path: find(cfg.FFmpegPath, "ANYFILE_FFMPEG", "ffmpeg", []string{"ffmpeg"}, nil)}
 	}()
 }
 
 // find resolves a tool from the path set in the settings, an
-// environment override, the directory of the running executable (so
-// tools can ship alongside AnyFile), a "tools" subdirectory, PATH and
-// finally well-known install locations.
-func find(configured, env string, names []string, dirs []string) string {
+// environment override, AnyFile's own install of it (managed, see
+// ManagedDir), the directory of the running executable (so tools can
+// ship alongside AnyFile), a "tools" subdirectory, PATH and finally
+// well-known install locations.
+func find(configured, env, managed string, names []string, dirs []string) string {
 	if isFile(configured) {
 		return configured
 	}
 	if p := os.Getenv(env); p != "" {
 		if isFile(p) {
 			return p
+		}
+	}
+	if m, ok := ReadManifest(managed); ok {
+		for _, n := range names {
+			if rel, ok := m.Files[n]; ok {
+				if p := filepath.Join(ManagedDir(), managed, rel); isFile(p) {
+					return p
+				}
+			}
 		}
 	}
 	var local []string

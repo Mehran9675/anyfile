@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -28,7 +29,8 @@ type settingsPage struct {
 	magikaMode  *segmented.Control
 	paths       map[string]*pathField
 
-	reset, done, showFile *button.Button
+	reset, done, showFile, installAll *button.Button
+	menuAdd, menuRemove               *button.Button
 }
 
 // numberField is a text input that only accepts whole numbers within
@@ -143,6 +145,31 @@ func newSettingsPage(u *UI) *settingsPage {
 		go platform.Reveal(settings.Path())
 	})
 	sp.done = newBtn("check", "Done", btnPrimary, func() { u.showSettings = false })
+	sp.menuAdd = newBtn("check", "Add", btnSecondary, func() {
+		go func() {
+			err := u.app.InstallContextActions()
+			u.app.Post(func() {
+				if err != nil {
+					u.toast("error", "Could not add the menu entry: "+err.Error())
+					return
+				}
+				u.toast("ok", "\"Inspect with AnyFile\" added to the right-click menu")
+			})
+		}()
+	})
+	sp.menuRemove = newBtn("x", "Remove", btnGhost, func() {
+		go func() {
+			err := u.app.UninstallContextActions()
+			u.app.Post(func() {
+				if err != nil {
+					u.toast("error", "Could not remove the menu entry: "+err.Error())
+					return
+				}
+				u.toast("ok", "\"Inspect with AnyFile\" removed from the right-click menu")
+			})
+		}()
+	})
+	sp.installAll = newBtn("download", "Install missing engines", btnPrimary, u.installMissing)
 	sp.load()
 	return sp
 }
@@ -245,21 +272,30 @@ func (sp *settingsPage) content() giode.Element {
 		sp.numberRow("max_mail_mb", "Largest email", "Largest .eml, .mht or mailbox explored."),
 		sp.numberRow("max_pdf_mb", "Largest PDF", "Largest PDF explored for attachments, images and fonts."),
 	)
-	files := card(giode.Styles{},
+	fileRows := []giode.Element{
 		sectionTitle("file", "Files"),
 		sp.checkRow("checksums", "Hashes are read from the whole file."),
 		sp.numberRow("checksum_max_mb", "Checksum size limit", "Skip checksums for larger files. 0 means no limit."),
 		sp.pathRow("temp_dir", "Extraction folder", "Where members are extracted while you inspect them. Cleaned up when the tab closes."),
-	)
+	}
+	if menu := sp.contextMenuRow(); menu != nil {
+		fileRows = append(fileRows, menu)
+	}
+	files := card(giode.Styles{}, fileRows...)
+	engineHead := giode.Row(giode.Styles{Width: -1, Align: giode.AlignCenter, Justify: giode.JustifySpaceBetween, Wrap: giode.WrapNoWrap},
+		sectionTitle("cpu", "Engines"), giode.Box(giode.Styles{}))
+	if sp.u.anyMissing() {
+		engineHead = giode.Row(giode.Styles{Width: -1, Align: giode.AlignCenter, Justify: giode.JustifySpaceBetween, Wrap: giode.WrapNoWrap},
+			sectionTitle("cpu", "Engines"), sp.installAll)
+	}
 	tools := card(giode.Styles{},
-		sectionTitle("cpu", "External tools"),
-		giode.Text("Leave empty to find each tool automatically (environment variable, next to AnyFile, PATH, common install folders).", txtw(12.5, colMuted, giode.Styles{LineHeight: 18})),
-		sp.pathRow("trid_path", "TrID", "trid.exe, with triddefs.trd in the same folder."),
-		sp.pathRow("magika_path", "Magika", "The magika command (pip install magika, or cargo install magika-cli)."),
-		sp.pathRow("sevenzip_path", "7-Zip", "7z.exe"),
-		sp.pathRow("ffprobe_path", "ffprobe", "Needed with FFmpeg for media streams."),
-		sp.pathRow("ffmpeg_path", "FFmpeg", "Copies streams out without re-encoding."),
-		sp.pathRow("oodle_path", "Oodle", "oo2core_*_win64.dll, shipped with many games."),
+		engineHead,
+		giode.Text("AnyFile can download each engine from its publisher and install it for your account only, without administrator rights. Or leave AnyFile to find a copy you already have (environment variable, next to AnyFile, PATH, common install folders), or choose one below.", txtw(12.5, colMuted, giode.Styles{LineHeight: 18})),
+		sp.engineRow("trid", "TrID", "18,000+ format definitions, asked when the built-in engines aren't sure.", "trid_path"),
+		sp.engineRow("magika", "Magika", "Google's deep-learning content-type model, strong on text, code and files without a header.", "magika_path"),
+		sp.engineRow("7zip", "7-Zip", "Opens 7z, rar, cab, wim, vhd(x), dmg, installers and other archives.", "sevenzip_path"),
+		sp.engineRow("ffmpeg", "FFmpeg", "Lists media streams (ffprobe) and copies them out without re-encoding (ffmpeg).", "ffmpeg_path", "ffprobe_path"),
+		sp.pathRow("oodle_path", "Oodle", "oo2core_*_win64.dll, shipped with many games. It is proprietary, so AnyFile can't install it; it also looks in the opened file's folder."),
 	)
 	return giode.Box(giode.Styles{Width: -1, Justify: giode.JustifyCenter, Padding: giode.Inset{Top: 22, Right: 26, Bottom: 30, Left: 26}},
 		giode.Stack(giode.Styles{Width: -1, MaxWidth: 860, Gap: 16}, header, ident, explore, files, tools))
@@ -305,6 +341,49 @@ func (sp *settingsPage) pathRow(key, label, help string) giode.Element {
 			icon("alert", colDanger, 13), giode.Text(f.err, txt(12, colDanger))))
 	}
 	return giode.Stack(giode.Styles{Width: -1, Gap: 8, Padding: giode.SymmetricInset(0, 4)}, kids...)
+}
+
+// contextMenuRow adds or removes "Inspect with AnyFile" in the file
+// manager's right-click menu, for copies the setup program didn't
+// install. macOS takes the entry from the app bundle, so it has none.
+func (sp *settingsPage) contextMenuRow() giode.Element {
+	help := "Adds it to Explorer's menu for your account (under \"Show more options\" on Windows 11). The setup program adds it for you."
+	switch runtime.GOOS {
+	case "darwin":
+		return nil
+	case "linux":
+		help = "Adds it to GNOME Files and Caja (under Scripts), Dolphin and Nemo for your account."
+	}
+	return sp.row("\"Inspect with AnyFile\" in the right-click menu", help,
+		giode.Row(giode.Styles{Gap: 8, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap}, sp.menuRemove, sp.menuAdd), "")
+}
+
+// engineRow is an installable engine: what it does, where it stands with
+// its Install, Update and Remove buttons, and the paths that override
+// the automatic lookup.
+func (sp *settingsPage) engineRow(id, label, help string, pathKeys ...string) giode.Element {
+	kids := []giode.Element{
+		giode.Stack(giode.Styles{Width: -1, Gap: 3},
+			giode.Text(label, txtw(13.5, colText, giode.Styles{FontWeight: giode.FontWeightMedium})),
+			giode.Text(help, txtw(12, colMuted, giode.Styles{LineHeight: 17})),
+		),
+		sp.u.engines[id].view(),
+	}
+	for _, key := range pathKeys {
+		f := sp.paths[key]
+		row := []giode.Element{giode.Box(giode.Styles{FlexGrow: 1, Width: -1}, f.in), f.browse}
+		if len(pathKeys) > 1 {
+			// Several programs: name each field.
+			name := strings.TrimSuffix(key, "_path")
+			row = append([]giode.Element{giode.Box(giode.Styles{Width: 64}, giode.Text(name, txt(12.5, colMuted)))}, row...)
+		}
+		kids = append(kids, giode.Row(giode.Styles{Width: -1, Gap: 8, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap}, row...))
+		if f.err != "" {
+			kids = append(kids, giode.Row(giode.Styles{Gap: 6, Align: giode.AlignCenter},
+				icon("alert", colDanger, 13), giode.Text(f.err, txt(12, colDanger))))
+		}
+	}
+	return giode.Stack(giode.Styles{Width: -1, Gap: 8, Padding: giode.Inset{Top: 6, Bottom: 6}}, kids...)
 }
 
 // segmentedBox gives a segmented control a fixed width to divide among

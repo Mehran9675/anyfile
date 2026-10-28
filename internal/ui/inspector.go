@@ -370,7 +370,11 @@ func (in *inspector) magikaCard(n *session.Node) giode.Element {
 	case r == nil:
 		out = append(out, muted("Waiting for the built-in analysis…"))
 	case !tools.Magika().Found():
-		out = append(out, muted("Magika is not installed. It is Google's deep-learning content-type model (200+ types, strong on text, code and files without a header). Install it with \"pip install magika\" or set its path in Settings."))
+		offer := in.u.inspectorOffer("magika")
+		out = append(out, muted("Magika is not installed. It is Google's deep-learning content-type model (200+ types, strong on text, code and files without a header). "+installHint(offer)))
+		if offer != nil {
+			out = append(out, offer)
+		}
 	case !r.MagikaRan:
 		out = append(out, muted("Not needed: the built-in engines were confident. Use \"Ask Magika\" for a second opinion."))
 	default:
@@ -410,7 +414,11 @@ func (in *inspector) tridCard(n *session.Node) giode.Element {
 	case r == nil:
 		out = append(out, giode.Text("Waiting for the built-in analysis…", txt(13, colMuted)))
 	case !tools.TrID().Found():
-		out = append(out, giode.Text("TrID is not installed. Built-in engines handle detection; place trid.exe and triddefs.trd next to AnyFile (or set ANYFILE_TRID) to add its 18,000+ definitions.", txtw(12.5, colMuted, giode.Styles{LineHeight: 18})))
+		offer := in.u.inspectorOffer("trid")
+		out = append(out, giode.Text("TrID is not installed. Built-in engines handle detection; TrID adds 18,000+ definitions. "+installHint(offer), txtw(12.5, colMuted, giode.Styles{LineHeight: 18})))
+		if offer != nil {
+			out = append(out, offer)
+		}
 	case !r.TrIDRan:
 		out = append(out, giode.Text("Not needed: the built-in engines were confident. Use \"Ask TrID\" for a second opinion.", txt(12.5, colMuted)))
 	case len(r.Candidates) == 0:

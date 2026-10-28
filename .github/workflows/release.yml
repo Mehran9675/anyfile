@@ -1,8 +1,9 @@
 name: Release
 
 # Builds AnyFile with the giode CLI for Windows (x86-64 and ARM64, zip
-# and installer), macOS (one universal app) and Linux (x86-64 and ARM64)
-# when a GitHub release is published, and attaches the packages to it.
+# and installer), macOS (one universal app, zipped and as a disk image)
+# and Linux (x86-64 and ARM64: tar.gz, .deb and .rpm) when a GitHub
+# release is published, and attaches the packages to it.
 on:
   release:
     types: [published]
@@ -22,7 +23,7 @@ permissions:
 env:
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
   # The giode CLI, pinned so releases build reproducibly.
-  GIODE_CLI: github.com/mehran9675/giode-cli/cmd/giode@2636e1f
+  GIODE_CLI: github.com/mehran9675/giode-cli/cmd/giode@f5c39c7
 
 jobs:
   test:
@@ -34,8 +35,8 @@ jobs:
         with:
           go-version-file: go.mod
       # The engines and the session have no GUI dependencies.
-      - run: go vet ./internal/carve ./internal/cfb ./internal/detect ./internal/explore/... ./internal/oggopus ./internal/oodle ./internal/session ./internal/tools ./cmd/anyprobe
-      - run: go test ./internal/carve ./internal/detect ./internal/oggopus ./internal/session ./internal/settings
+      - run: go vet ./internal/carve ./internal/cfb ./internal/detect ./internal/explore/... ./internal/install ./internal/oggopus ./internal/oodle ./internal/session ./internal/tools ./cmd/anyprobe
+      - run: go test ./internal/carve ./internal/detect ./internal/install ./internal/oggopus ./internal/session ./internal/settings
 
   windows:
     name: Windows ${{ matrix.arch }}
@@ -101,11 +102,14 @@ jobs:
         run: .github/scripts/stamp-version.sh
       - name: Build
         run: |
-          giode build linux
+          giode build linux deb rpm
           go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/linux/anyprobe ./cmd/anyprobe
       - name: Package
         run: |
-          mkdir -p out && cp README.md dist/linux/
+          mkdir -p out
+          mv dist/linux/*.deb "out/AnyFile-$TAG-linux-${{ matrix.arch }}.deb"
+          mv dist/linux/*.rpm "out/AnyFile-$TAG-linux-${{ matrix.arch }}.rpm"
+          cp README.md dist/linux/
           mv dist/linux dist/AnyFile
           tar -C dist -czf "out/AnyFile-$TAG-linux-${{ matrix.arch }}.tar.gz" AnyFile
       - uses: actions/upload-artifact@v4
@@ -143,6 +147,10 @@ jobs:
         run: |
           mkdir -p out
           ditto -c -k --keepParent dist/macos/AnyFile.app "out/AnyFile-$TAG-macos-universal.zip"
+          # The disk image is made here rather than by giode build dmg,
+          # which builds the app again without anyprobe and the signature.
+          mkdir dmg && ditto dist/macos/AnyFile.app dmg/AnyFile.app && ln -s /Applications dmg/Applications
+          hdiutil create -volname AnyFile -srcfolder dmg -ov -format UDZO "out/AnyFile-$TAG-macos-universal.dmg"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-universal

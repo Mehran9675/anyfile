@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"strings"
 	"time"
 
 	"gioui.org/layout"
@@ -39,6 +40,7 @@ type UI struct {
 	emptyOpenBtn *button.Button
 
 	settings     *settingsPage
+	engines      map[string]*engineInstall
 	showSettings bool
 	dropZone     *giode.PressableElement
 	version      string
@@ -71,9 +73,25 @@ func Run(args []string, version string) error {
 	if platform.FileDropSupported() {
 		cfg.OnFileDrop = u.openPaths
 	}
+	// One window: files opened while AnyFile runs, from the command line
+	// or the file manager's "Inspect with AnyFile", become tabs in it.
+	cfg.SingleInstanceLock = &giode.SingleInstanceLock{
+		UniqueID:     "com.mehran9675.anyfile",
+		OnLaunchArgs: func(args []string) { u.openPaths(fileArgs(args)) },
+	}
+	// Also in giode.toml, for the Windows installer and the macOS app;
+	// declared here so builds without the giode CLI can register it.
+	cfg.ContextActions = []giode.ContextAction{{ID: contextInspect, Label: "Inspect with AnyFile", Files: true}}
+	cfg.OnContextAction = func(id string, paths []string) {
+		if id == contextInspect {
+			u.openPaths(paths)
+		}
+	}
 	u.app = giode.New(cfg)
 	u.toasts = giode.Toaster(giode.Styles{Background: colRaised, BorderColor: colBorderHi, Color: colText, BorderRadius: 11}).
-		Placement(giode.ToastBottomRight).Duration(5 * time.Second).Max(4)
+		Placement(giode.ToastBottomRight).Duration(5 * time.Second).Max(4).
+		Inset(giode.Inset{Top: 44, Bottom: 28}) // clear of the title and status bars
+	u.engines = newEngineInstalls(u)
 	u.inspector = newInspector(u)
 	u.settings = newSettingsPage(u)
 	if settingsErr != nil {
@@ -91,10 +109,31 @@ func Run(args []string, version string) error {
 		Background: colSidebar, Color: colTextSoft, Height: 44, FontSize: 13,
 		BorderWidth: 1, BorderColor: colBorder,
 	}).Icon(logo(22)).Leading(u.openBtn, dynamic(u.tabStrip)).Trailing(u.settingsBtn)
-	if len(args) > 0 {
-		u.app.Post(func() { u.openPaths(args) })
+	// giode runs a context action itself (OnContextAction).
+	if paths := fileArgs(args); len(paths) > 0 {
+		u.app.Post(func() { u.openPaths(paths) })
 	}
 	return u.app.Run(u.view)
+}
+
+// contextInspect is the ID of the "Inspect with AnyFile" entry in the
+// file manager's right-click menu (giode.toml's context_actions).
+const contextInspect = "inspect"
+
+// fileArgs returns the command-line arguments that name files to open:
+// none for a context action, which giode delivers to OnContextAction,
+// and no flags.
+func fileArgs(args []string) []string {
+	var out []string
+	for _, a := range args {
+		if strings.HasPrefix(a, "--giode-action=") {
+			return nil
+		}
+		if !strings.HasPrefix(a, "-") {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // toast reports a session outcome; safe from any goroutine.

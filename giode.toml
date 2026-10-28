@@ -28,3 +28,12 @@ desktop_shortcut = true
 
 [linux]
 categories = ["Utility", "System"]
+maintainer = "Mehran9675 <61628815+Mehran9675@users.noreply.github.com>"
+
+# "Inspect with AnyFile" in the file manager's right-click menu, on every file.
+# The Windows installer and the macOS app register it; Settings can add it
+# for the current user otherwise.
+[[context_actions]]
+id = "inspect"
+label = "Inspect with AnyFile"
+files = true
