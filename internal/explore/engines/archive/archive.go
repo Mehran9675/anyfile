@@ -21,6 +21,7 @@ import (
 
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/explore"
+	"github.com/mehran9675/giode/i18n"
 )
 
 func init() {
@@ -72,10 +73,10 @@ func listZip(p string, d *detect.Result) (*explore.Listing, error) {
 		l.Entries = append(l.Entries, e)
 	}
 	if encrypted > 0 {
-		l.Notes = append(l.Notes, strconv.Itoa(encrypted)+" entries are encrypted and cannot be extracted without the password.")
+		l.Notes = append(l.Notes, i18n.Intl("{count} entries are encrypted and cannot be extracted without the password.", "count", encrypted))
 	}
 	if zr.Comment != "" {
-		l.Notes = append(l.Notes, "Archive comment: "+zr.Comment)
+		l.Notes = append(l.Notes, i18n.Intl("Archive comment: {comment}", "comment", zr.Comment))
 	}
 	return l, nil
 }
@@ -120,7 +121,7 @@ func listTar(p string, d *detect.Result) (*explore.Listing, error) {
 			if len(l.Entries) == 0 {
 				return nil, err
 			}
-			l.Notes = append(l.Notes, "Archive is truncated or damaged: "+err.Error())
+			l.Notes = append(l.Notes, i18n.Intl("Archive is truncated or damaged: {err}", "err", err))
 			break
 		}
 		e := &explore.Entry{Path: h.Name, Size: h.Size, ModTime: h.ModTime, Dir: h.Typeflag == tar.TypeDir}

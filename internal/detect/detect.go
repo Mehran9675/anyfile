@@ -13,6 +13,7 @@ import (
 	"github.com/mehran9675/anyfile/internal/carve"
 	"github.com/mehran9675/anyfile/internal/cfb"
 	"github.com/mehran9675/anyfile/internal/tools"
+	"github.com/mehran9675/giode/i18n"
 )
 
 // Options tune Detect.
@@ -176,9 +177,9 @@ func consultTrID(p, name string, r *Result) {
 	r.Candidates = cands
 	if len(cands) == 0 {
 		if r.Label != "" {
-			r.note("TrID could not identify this file; the built-in analysis stands.")
+			r.note(i18n.Intl("TrID could not identify this file; the built-in analysis stands."))
 		} else {
-			r.note("TrID could not identify this file; AnyFile analysed it on its own.")
+			r.note(i18n.Intl("TrID could not identify this file; AnyFile analysed it on its own."))
 		}
 		return
 	}
@@ -199,7 +200,8 @@ func consultTrID(p, name string, r *Result) {
 	evidence := math.Min(1, float64(top.Patterns-1)/3)
 	conf := math.Min(0.95, (0.2+top.Percent/100*0.6)*(0.4+0.6*evidence))
 	if conf < 0.35 {
-		r.note(fmt.Sprintf("TrID's best guess (%s, %.0f%%) rests on very little evidence and was not adopted.", top.Label, top.Percent))
+		r.note(i18n.Intl("TrID's best guess ({type}, {percent}%) rests on very little evidence and was not adopted.",
+			"type", top.Label, "percent", fmt.Sprintf("%.0f", top.Percent)))
 		return
 	}
 	if r.Label != "" && r.Confidence >= conf {
@@ -207,7 +209,7 @@ func consultTrID(p, name string, r *Result) {
 		return
 	}
 	if r.Label != "" {
-		r.note("Built-in analysis suggested: " + r.Label)
+		r.note(i18n.Intl("Built-in analysis suggested: {type}", "type", r.Label))
 	}
 	mime := r.MIME
 	if r.Ext != top.Ext {
@@ -232,7 +234,7 @@ func fallback(f *os.File, h []byte, r *Result) {
 			kinds = append(kinds, fmt.Sprintf("%d× %s", v, k))
 		}
 		r.set("Binary container with embedded files", "bin", "application/octet-stream", CatData, 0.5, SrcHeuristic)
-		r.note("Found " + fmt.Sprint(len(hits)) + " embedded object(s): " + strings.Join(kinds, ", ") + ". Explore to extract them.")
+		r.note(i18n.Intl("Found {count} embedded objects: {kinds}. Explore to extract them.", "count", len(hits), "kinds", strings.Join(kinds, ", ")))
 		if hits[0].Off == 0 {
 			r.Label = "Unknown wrapper around " + hits[0].Label
 		}
@@ -243,17 +245,17 @@ func fallback(f *os.File, h []byte, r *Result) {
 		r.set("Zero-filled / sparse data", "bin", "application/octet-stream", CatData, 0.6, SrcHeuristic)
 	case r.Entropy > 7.95:
 		r.set("Encrypted or compressed data", "bin", "application/octet-stream", CatEncrypted, 0.45, SrcHeuristic)
-		r.note("Near-maximal entropy with no recognisable structure: likely encrypted, compressed with an unknown scheme, or random.")
+		r.note(i18n.Intl("Near-maximal entropy with no recognisable structure: likely encrypted, compressed with an unknown scheme, or random."))
 		if r.Magika != nil && r.Magika.RawLabel == "randombytes" {
 			r.Confidence = 0.6
-			r.note(fmt.Sprintf("Magika agrees: its model reads the content as random bytes (%.0f%%).", r.Magika.Score*100))
+			r.note(i18n.Intl("Magika agrees: its model reads the content as random bytes ({percent}%).", "percent", fmt.Sprintf("%.0f", r.Magika.Score*100)))
 		}
 	case r.Entropy > 7.2:
 		r.set("Compressed binary data", "bin", "application/octet-stream", CatData, 0.35, SrcHeuristic)
 	default:
 		r.set("Unknown binary data", "bin", "application/octet-stream", CatUnknown, 0.2, SrcHeuristic)
 		if strs > 20 {
-			r.note(fmt.Sprintf("Contains %d readable strings in the first %s; it may be a proprietary structured format.", strs, humanSize(int64(len(h)))))
+			r.note(i18n.Intl("Contains {count} readable strings in the first {size}; it may be a proprietary structured format.", "count", strs, "size", humanSize(int64(len(h)))))
 		}
 	}
 }

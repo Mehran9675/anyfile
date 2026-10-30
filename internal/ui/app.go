@@ -6,7 +6,6 @@
 package ui
 
 import (
-	"fmt"
 	"image"
 	"log"
 	"strings"
@@ -64,6 +63,8 @@ func Run(args []string, version string) error {
 		Background: colBg,
 		LogLevel:   giode.LogLevelError,
 		Logger:     log.Default(),
+		Intl:       intlOptions(),
+		Locale:     locale(settings.Get()),
 		OnShutdown: func() {
 			for _, t := range u.tabs {
 				t.sess.Close()
@@ -81,7 +82,7 @@ func Run(args []string, version string) error {
 	}
 	// Also in giode.toml, for the Windows installer and the macOS app;
 	// declared here so builds without the giode CLI can register it.
-	cfg.ContextActions = []giode.ContextAction{{ID: contextInspect, Label: "Inspect with AnyFile", Files: true}}
+	cfg.ContextActions = []giode.ContextAction{{ID: contextInspect, Label: tr("Inspect with AnyFile"), Files: true}}
 	cfg.OnContextAction = func(id string, paths []string) {
 		if id == contextInspect {
 			u.openPaths(paths)
@@ -95,16 +96,16 @@ func Run(args []string, version string) error {
 	u.inspector = newInspector(u)
 	u.settings = newSettingsPage(u)
 	if settingsErr != nil {
-		u.toast("error", "Could not read settings, using defaults: "+settingsErr.Error())
+		u.toast("error", tr("Could not read settings, using defaults: {err}", "err", settingsErr))
 	}
 	// Tool paths may have changed: look for the tools again.
 	settings.Watch(func(settings.Settings) { tools.Reload() })
-	u.settingsBtn = newBtn("settings", "", btnGhost, func() { u.showSettings = !u.showSettings })
-	u.settingsBtn.Label("Settings")
+	u.settingsBtn = newBtn("settings", "Settings", btnGhost, func() { u.showSettings = !u.showSettings })
 	u.openBtn = newBtn("open", "Open file", btnSecondary, u.pickFile)
 	u.emptyOpenBtn = newBtn("open", "Choose a file", btnPrimary, u.pickFile)
-	u.dropZone = giode.Pressable(u.dropZoneView).Label("Choose a file").
+	u.dropZone = giode.Pressable(u.dropZoneView).
 		OnClick(func(giode.ClickEvent) { u.pickFile() })
+	appText.add(func() { u.dropZone.Label(tr("Choose a file")) })
 	u.bar = giode.TitleBar(u.app, "AnyFile", giode.Styles{
 		Background: colSidebar, Color: colTextSoft, Height: 44, FontSize: 13,
 		BorderWidth: 1, BorderColor: colBorder,
@@ -149,7 +150,7 @@ func (u *UI) toast(kind, msg string) {
 // Every chosen file opens in its own tab.
 func (u *UI) pickFile() {
 	go func() {
-		if paths, ok := platform.PickFiles("Open files"); ok {
+		if paths, ok := platform.PickFiles(tr("Open files")); ok {
 			u.app.Post(func() { u.openPaths(paths) })
 		}
 	}()
@@ -165,6 +166,7 @@ func (u *UI) pickFolder(title string, fn func(dir string)) {
 }
 
 func (u *UI) view() giode.Element {
+	appText.update()
 	var body giode.Element
 	var root *session.Node
 	if t := u.active; u.showSettings {
@@ -197,8 +199,9 @@ func (u *UI) emptyState() giode.Element {
 	}
 	var cards []giode.Element
 	for _, f := range features {
+		f.title, f.text = tr(f.title), tr(f.text)
 		cards = append(cards, giode.Box(giode.Styles{
-			FlexDirection: giode.FlexDirectionColumn, Gap: 8, Width: 230, Height: 180,
+			FlexDirection: giode.FlexDirectionColumn, Gap: 8, Width: 230, Height: 200,
 			Padding: giode.UniformInset(16), Background: colSurface, BorderRadius: 12,
 			BorderWidth: 1, BorderColor: colBorder,
 		},
@@ -218,10 +221,10 @@ func (u *UI) dropZoneView(s giode.PressState) giode.Element {
 	if s.Hovered || s.Focused {
 		border, bg = colAccent, "#151c2c"
 	}
-	hint := "or choose one, and AnyFile will tell you what it really is and what's inside"
-	title := "Drop any file here"
+	hint := tr("or choose one, and AnyFile will tell you what it really is and what's inside")
+	title := tr("Drop any file here")
 	if !platform.FileDropSupported() {
-		title, hint = "Open any file", "AnyFile will tell you what it really is and what's inside"
+		title, hint = tr("Open any file"), tr("AnyFile will tell you what it really is and what's inside")
 	}
 	return giode.Box(giode.Styles{
 		FlexDirection: giode.FlexDirectionColumn, Align: giode.AlignCenter, Justify: giode.JustifyCenter,
@@ -247,7 +250,7 @@ func (u *UI) statusBar(root *session.Node) giode.Element {
 		return giode.Row(giode.Styles{Gap: 4, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
 			icon(ic, c, 11), giode.Text(name, txt(11.5, c)))
 	}
-	engines := []giode.Element{giode.Text("Engines", txt(11.5, colFaint))}
+	engines := []giode.Element{giode.Text(tr("Engines"), txt(11.5, colFaint))}
 	for _, t := range tools.All() {
 		engines = append(engines, status(t.Name, t.Found()))
 	}
@@ -259,10 +262,10 @@ func (u *UI) statusBar(root *session.Node) giode.Element {
 	}
 	engines = append(engines,
 		status("Oodle", oodle.Find(near) != ""),
-		status(fmt.Sprintf("Built-in (signatures, carver, %d engines)", explore.EngineCount()), true))
-	right := giode.Text("AnyFile "+u.version+" · Drop a file anywhere in the window", txt(11.5, colFaint))
+		status(tr("Built-in (signatures, carver, {count} engines)", "count", explore.EngineCount()), true))
+	right := giode.Text("AnyFile "+u.version+" · "+tr("Drop a file anywhere in the window"), txt(11.5, colFaint))
 	if !platform.FileDropSupported() {
-		right = giode.Text("AnyFile "+u.version+" · Use Open file to inspect a file", txt(11.5, colFaint))
+		right = giode.Text("AnyFile "+u.version+" · "+tr("Use Open file to inspect a file"), txt(11.5, colFaint))
 	}
 	if root != nil {
 		right = giode.Text(root.Local, txtw(11.5, colFaint, giode.Styles{MaxLines: 1, TextOverflow: giode.TextOverflowEllipsis}))

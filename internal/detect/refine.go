@@ -17,13 +17,14 @@ import (
 	"github.com/mehran9675/anyfile/internal/codec"
 
 	"github.com/mehran9675/anyfile/internal/cfb"
+	"github.com/mehran9675/giode/i18n"
 )
 
 // refineZip tells the many ZIP-based formats apart by their members.
 func refineZip(p string, r *Result) {
 	zr, err := zip.OpenReader(p)
 	if err != nil {
-		r.note("ZIP signature present but the central directory could not be read: " + err.Error())
+		r.note(i18n.Intl("ZIP signature present but the central directory could not be read: {err}", "err", err))
 		r.Confidence = 0.7
 		return
 	}
@@ -169,7 +170,7 @@ func refineOLE(p string, r *Result) {
 	st, _ := f.Stat()
 	c, err := cfb.Open(f, st.Size())
 	if err != nil {
-		r.note("Compound file header found but unreadable: " + err.Error())
+		r.note(i18n.Intl("Compound file header found but unreadable: {err}", "err", err))
 		return
 	}
 	r.detail("Streams", fmt.Sprint(len(c.Entries())))
@@ -180,7 +181,7 @@ func refineOLE(p string, r *Result) {
 	switch {
 	case encrypted:
 		set("Encrypted Office document", "docx", "application/octet-stream", CatEncrypted)
-		r.note("This is a password-protected Office file (OOXML inside an encrypted OLE container).")
+		r.note(i18n.Intl("This is a password-protected Office file (OOXML inside an encrypted OLE container)."))
 	case has("WordDocument"):
 		set("Word 97-2003 document", "doc", "application/msword", CatDocument)
 	case has("Workbook") || has("Book"):
@@ -394,7 +395,7 @@ func refinePE(p string, h []byte, r *Result) bool {
 		r.detail("Signed", "Authenticode signature present")
 	}
 	if overlay > 0 {
-		r.detail("Overlay", humanSize(overlay)+" appended after the image")
+		r.detail("Overlay", i18n.Intl("{size} appended after the image", "size", humanSize(overlay)))
 	}
 	installer := installerKind(p, end, overlay, h)
 	if installer != "" {

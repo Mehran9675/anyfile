@@ -48,6 +48,12 @@ The status bar shows which engines were found.
 
 AnyFile runs as one window: files opened while it runs, from the command line or with **Inspect with AnyFile** in the file manager's right-click menu, open as tabs in it. The Windows installer and the macOS app add that menu entry; for other copies, **Settings > Files** adds or removes it for your account.
 
+## Languages
+
+The interface is available in English and 24 other European languages: Bulgarian, Croatian, Czech, Danish, Dutch, Estonian, Finnish, French, German, Greek, Hungarian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Portuguese, Romanian, Russian, Slovak, Slovenian, Spanish, Swedish and Ukrainian. AnyFile follows the system language; **Settings > General > Language** picks another one, and the change applies right away. File type names and the engines' own reports stay in English.
+
+Translations live in `internal/locales/<language>.json` and are keyed by the English text, so a missing entry falls back to English. Entries with a `{count}` take plural forms (`one`, `few`, `other`… as the language needs).
+
 ## Build and run
 
 AnyFile is built with the [giode CLI](https://github.com/Mehran9675/giode-cli), configured by `giode.toml`:

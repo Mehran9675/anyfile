@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/mehran9675/giode/i18n"
 )
 
 // TrID comes from its author's site as a zip per platform plus the
@@ -15,7 +17,7 @@ var tridEngine = &Engine{
 	ID:       "trid",
 	Name:     "TrID",
 	Source:   "mark0.net (Marco Pontello)",
-	Size:     "about 2 MB",
+	SizeMB:   2,
 	commands: []command{{name: "trid"}},
 	unsupported: func(goos, goarch string) string {
 		switch {
@@ -24,9 +26,9 @@ var tridEngine = &Engine{
 		case goos == "linux" && goarch == "amd64":
 			return ""
 		case goos == "darwin":
-			return "TrID has no macOS version."
+			return i18n.Intl("TrID has no macOS version.")
 		default:
-			return "TrID has no build for " + goos + " " + goarch + "."
+			return i18n.Intl("{name} has no build for {platform}.", "name", "TrID", "platform", goos+" "+goarch)
 		}
 	},
 	fetch: func(ctx context.Context, j *job) error {
@@ -65,11 +67,11 @@ var magikaEngine = &Engine{
 	ID:       "magika",
 	Name:     "Magika",
 	Source:   "github.com/google/magika",
-	Size:     "about 10 MB",
+	SizeMB:   10,
 	commands: []command{{name: "magika", args: []string{"--version"}}},
 	unsupported: func(goos, goarch string) string {
 		if magikaTriples[goos+"/"+goarch] == "" {
-			return "Magika has no build for " + goos + " " + goarch + "."
+			return i18n.Intl("{name} has no build for {platform}.", "name", "Magika", "platform", goos+" "+goarch)
 		}
 		return ""
 	},
@@ -126,11 +128,11 @@ var sevenZipEngine = &Engine{
 	ID:       "7zip",
 	Name:     "7-Zip",
 	Source:   "github.com/ip7z/7zip (Igor Pavlov)",
-	Size:     "about 2 MB",
+	SizeMB:   2,
 	commands: sevenZipCommand(),
 	unsupported: func(goos, goarch string) string {
 		if sevenZipAsset(goos, goarch) == nil {
-			return "7-Zip has no build for " + goos + " " + goarch + "."
+			return i18n.Intl("{name} has no build for {platform}.", "name", "7-Zip", "platform", goos+" "+goarch)
 		}
 		return ""
 	},
@@ -206,14 +208,14 @@ var ffmpegEngine = &Engine{
 	ID:       "ffmpeg",
 	Name:     "FFmpeg",
 	Source:   ffmpegSource(),
-	Size:     "about 100 MB",
+	SizeMB:   100,
 	commands: []command{{name: "ffmpeg", args: []string{"-version"}}, {name: "ffprobe", args: []string{"-version"}}},
 	unsupported: func(goos, goarch string) string {
 		if goos == "darwin" && (goarch == "arm64" || goarch == "amd64") {
 			return ""
 		}
 		if ffmpegBuilds[goos+"/"+goarch] == "" {
-			return "There is no FFmpeg build for " + goos + " " + goarch + " to install; install it with your package manager."
+			return i18n.Intl("There is no FFmpeg build for {platform} to install; install it with your package manager.", "platform", goos+" "+goarch)
 		}
 		return ""
 	},

@@ -32,7 +32,8 @@ func newEngineInstalls(u *UI) map[string]*engineInstall {
 	for _, e := range install.Engines {
 		ei := &engineInstall{e: e}
 		ei.install = newBtn("download", "Install", btnSecondary, func() { u.startInstall(ei) })
-		ei.inspectorBtn = newBtn("download", "Install "+e.Name, btnSecondary, func() { u.startInstall(ei) })
+		ei.inspectorBtn = newBtn("download", "", btnSecondary, func() { u.startInstall(ei) })
+		appText.add(func() { ei.inspectorBtn.Label(tr("Install {name}", "name", e.Name)) })
 		ei.remove = newBtn("x", "Remove", btnGhost, func() { u.removeEngine(ei) })
 		ei.cancelBtn = newBtn("x", "Cancel", btnGhost, func() {
 			if ei.cancel != nil {
@@ -83,7 +84,7 @@ func (u *UI) startInstall(ei *engineInstall) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	ei.busy, ei.cancel, ei.err = true, cancel, ""
-	ei.prog = install.Progress{Step: "Starting"}
+	ei.prog = install.Progress{Step: tr("Starting")}
 	go func() {
 		err := ei.e.Install(ctx, func(p install.Progress) {
 			u.app.Post(func() { ei.prog = p })
@@ -94,16 +95,16 @@ func (u *UI) startInstall(ei *engineInstall) {
 			ei.busy, ei.cancel = false, nil
 			switch {
 			case errors.Is(err, context.Canceled):
-				u.toast("ok", ei.e.Name+" install canceled")
+				u.toast("ok", tr("{name} install canceled", "name", ei.e.Name))
 			case err != nil:
 				ei.err = err.Error()
-				u.toast("error", "Could not install "+ei.e.Name+": "+err.Error())
+				u.toast("error", tr("Could not install {name}: {err}", "name", ei.e.Name, "err", err))
 			case !ei.found():
 				// A path in Settings or an environment variable points
 				// elsewhere and takes precedence.
-				u.toast("ok", ei.e.Name+" installed, but the path set in Settings is used instead")
+				u.toast("ok", tr("{name} installed, but the path set in Settings is used instead", "name", ei.e.Name))
 			default:
-				u.toast("ok", ei.e.Name+" installed")
+				u.toast("ok", tr("{name} installed", "name", ei.e.Name))
 			}
 		})
 	}()
@@ -121,10 +122,10 @@ func (u *UI) removeEngine(ei *engineInstall) {
 		u.app.Post(func() {
 			if err != nil {
 				ei.err = err.Error()
-				u.toast("error", "Could not remove "+ei.e.Name+": "+err.Error())
+				u.toast("error", tr("Could not remove {name}: {err}", "name", ei.e.Name, "err", err))
 				return
 			}
-			u.toast("ok", ei.e.Name+" removed")
+			u.toast("ok", tr("{name} removed", "name", ei.e.Name))
 		})
 	}()
 }
@@ -155,15 +156,15 @@ func (ei *engineInstall) status() (giode.Element, string) {
 	m, managed := ei.e.Installed()
 	switch {
 	case ei.busy:
-		return chip("Installing", colAccent, "download"), ""
+		return chip(tr("Installing"), colAccent, "download"), ""
 	case ei.found() && managed && ts[0].Managed():
-		return chip("Installed by AnyFile", colSuccess, "check"), m.Version
+		return chip(tr("Installed by AnyFile"), colSuccess, "check"), m.Version
 	case ei.found():
-		return chip("Found", colSuccess, "check"), ts[0].Path
+		return chip(tr("Found"), colSuccess, "check"), ts[0].Path
 	case ei.e.Unsupported() != "":
-		return chip("Not available", colFaint, "x"), ei.e.Unsupported()
+		return chip(tr("Not available"), colFaint, "x"), ei.e.Unsupported()
 	default:
-		return chip("Not installed", colWarning, "alert"), "Downloads " + ei.e.Size + " from " + ei.e.Source + "."
+		return chip(tr("Not installed"), colWarning, "alert"), tr("Downloads about {size} MB from {source}.", "size", ei.e.SizeMB, "source", ei.e.Source)
 	}
 }
 
@@ -178,10 +179,10 @@ func (ei *engineInstall) view() giode.Element {
 		btns = append(btns, ei.cancelBtn)
 	case ei.e.Unsupported() != "":
 	case managed:
-		ei.install.Label("Update")
+		ei.install.Label(tr("Update"))
 		btns = append(btns, ei.remove, ei.install)
 	default:
-		ei.install.Label("Install")
+		ei.install.Label(tr("Install"))
 		btns = append(btns, ei.install)
 	}
 	line := giode.Row(giode.Styles{Width: -1, Gap: 10, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
@@ -208,7 +209,7 @@ func (ei *engineInstall) progressView() giode.Element {
 	step := p.Step
 	kids := []giode.Element{giode.Spinner(giode.Styles{Width: 13, Height: 13, Color: colAccent})}
 	if p.Total > 0 {
-		step += fmt.Sprintf("  %.1f of %.1f MB", float64(p.Done)/(1<<20), float64(p.Total)/(1<<20))
+		step += "  " + tr("{done} of {total} MB", "done", fmt.Sprintf("%.1f", float64(p.Done)/(1<<20)), "total", fmt.Sprintf("%.1f", float64(p.Total)/(1<<20)))
 		kids = append(kids, bar(float32(p.Done)/float32(p.Total), colAccent, 160))
 	}
 	kids = append(kids, giode.Text(step, txtw(12, colTextSoft, giode.Styles{MaxLines: 1, TextOverflow: giode.TextOverflowEllipsis})))
@@ -234,7 +235,7 @@ func (u *UI) inspectorOffer(id string) giode.Element {
 // offers to install the engine here.
 func installHint(offer giode.Element) string {
 	if offer != nil {
-		return "AnyFile can install it, or you can set its path in Settings."
+		return tr("AnyFile can install it, or you can set its path in Settings.")
 	}
-	return "Set its path in Settings if you have a copy."
+	return tr("Set its path in Settings if you have a copy.")
 }

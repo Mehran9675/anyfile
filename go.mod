@@ -5,7 +5,7 @@ go 1.26.6
 require (
 	gioui.org v0.10.2
 	github.com/klauspost/compress v1.20.3
-	github.com/mehran9675/giode v0.1.9-alpha.1
+	github.com/mehran9675/giode v0.1.18-alpha.1
 	github.com/ncruces/zenity v0.10.15
 	github.com/ulikunitz/xz v0.5.17
 	golang.org/x/sys v0.47.0

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/mehran9675/anyfile/internal/tools"
+	"github.com/mehran9675/giode/i18n"
 )
 
 // unpackMSI extracts a Windows Installer package with an administrative
@@ -14,7 +15,7 @@ import (
 // the files keep wants, flat in the job's folder.
 func (j *job) unpackMSI(msi string, keep keepFunc) error {
 	defer os.Remove(msi)
-	j.progress(Progress{Step: "Unpacking"})
+	j.progress(Progress{Step: i18n.Intl("Unpacking")})
 	out := j.tempPath("msi")
 	defer os.RemoveAll(out)
 	// msiexec parses TARGETDIR=... itself, so the path is quoted for it.

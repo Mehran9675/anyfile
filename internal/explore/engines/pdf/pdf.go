@@ -22,6 +22,7 @@ import (
 
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/explore"
+	"github.com/mehran9675/giode/i18n"
 )
 
 func init() {
@@ -74,7 +75,7 @@ func listPDF(p string, d *detect.Result) (*explore.Listing, error) {
 	}
 	l := &explore.Listing{Engine: "PDF (built-in)"}
 	if bytes.Contains(data, []byte("/Encrypt")) {
-		l.Notes = append(l.Notes, "This PDF is encrypted; embedded streams cannot be decoded without its password.")
+		l.Notes = append(l.Notes, i18n.Intl("This PDF is encrypted; embedded streams cannot be decoded without its password."))
 		return l, errors.New("encrypted PDF")
 	}
 	byNum := map[int]*pdfObj{}
@@ -161,7 +162,7 @@ func listPDF(p string, d *detect.Result) (*explore.Listing, error) {
 		}
 	}
 	if images > 0 {
-		l.Notes = append(l.Notes, fmt.Sprintf("%d image(s) extracted as stored; JPEG and JPEG 2000 images are bit-exact.", images))
+		l.Notes = append(l.Notes, i18n.Intl("{count} images extracted as stored; JPEG and JPEG 2000 images are bit-exact.", "count", images))
 	}
 	if len(l.Entries) == 0 {
 		return l, errors.New("the PDF has no attachments, images or embedded fonts")

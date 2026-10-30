@@ -1,0 +1,16 @@
+{
+	"Found {count} embedded objects: {kinds}. Explore to extract them.": {"one": "Found {count} embedded object: {kinds}. Explore to extract it.", "other": "Found {count} embedded objects: {kinds}. Explore to extract them."},
+	"Contains {count} readable strings in the first {size}; it may be a proprietary structured format.": {"one": "Contains {count} readable string in the first {size}; it may be a proprietary structured format.", "other": "Contains {count} readable strings in the first {size}; it may be a proprietary structured format."},
+	"{count} entries are encrypted and cannot be extracted without the password.": {"one": "{count} entry is encrypted and cannot be extracted without the password.", "other": "{count} entries are encrypted and cannot be extracted without the password."},
+	"{count} images extracted as stored; JPEG and JPEG 2000 images are bit-exact.": {"one": "{count} image extracted as stored; JPEG and JPEG 2000 images are bit-exact.", "other": "{count} images extracted as stored; JPEG and JPEG 2000 images are bit-exact."},
+	"{count} audio streams were stored as bare Opus packets; each is rewrapped as a standard .opus file when opened or extracted.": {"one": "{count} audio stream was stored as bare Opus packets; it is rewrapped as a standard .opus file when opened or extracted.", "other": "{count} audio streams were stored as bare Opus packets; each is rewrapped as a standard .opus file when opened or extracted."},
+	"{count} assets are Oodle compressed. {err}.": {"one": "{count} asset is Oodle compressed. {err}.", "other": "{count} assets are Oodle compressed. {err}."},
+	"{count} assets are Oodle compressed and are decompressed with the game's own oo2core library. Their formats are engine-internal.": {"one": "{count} asset is Oodle compressed and is decompressed with the game's own oo2core library. Its format is engine-internal.", "other": "{count} assets are Oodle compressed and are decompressed with the game's own oo2core library. Their formats are engine-internal."},
+	"Extracting {count} files…": {"one": "Extracting {count} file…", "other": "Extracting {count} files…"},
+	"Deep scan found {count} embedded objects.": {"one": "Deep scan found {count} embedded object.", "other": "Deep scan found {count} embedded objects."},
+	"Extracted {done} of {count} files to {path} ({failed} failed).": {"one": "Extracted {done} of {count} file to {path} ({failed} failed).", "other": "Extracted {done} of {count} files to {path} ({failed} failed)."},
+	"Extracted {count} files to {path}": {"one": "Extracted {count} file to {path}", "other": "Extracted {count} files to {path}"},
+	"Built-in (signatures, carver, {count} engines)": {"one": "Built-in (signatures, carver, {count} engine)", "other": "Built-in (signatures, carver, {count} engines)"},
+	"Extract {count} items…": {"one": "Extract {count} item…", "other": "Extract {count} items…"},
+	"{count} items": {"one": "{count} item", "other": "{count} items"}
+}

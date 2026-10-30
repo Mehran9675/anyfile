@@ -45,6 +45,10 @@ type Settings struct {
 	ChecksumMaxMB int    `json:"checksum_max_mb"` // skip checksums above this size (0: no limit)
 	TempDir       string `json:"temp_dir"`        // where members are extracted ("" = system temp)
 
+	// Language is the interface's locale ("de", "pt"); "" follows the
+	// system.
+	Language string `json:"language"`
+
 	// External tools ("" = find automatically).
 	TrIDPath     string `json:"trid_path"`
 	MagikaPath   string `json:"magika_path"`

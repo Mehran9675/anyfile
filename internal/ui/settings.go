@@ -1,15 +1,16 @@
 package ui
 
 import (
-	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
 
+	"github.com/mehran9675/anyfile/internal/locales"
 	"github.com/mehran9675/anyfile/internal/platform"
 	"github.com/mehran9675/anyfile/internal/settings"
 	"github.com/mehran9675/giode"
 	"github.com/mehran9675/giode/components/button"
+	"github.com/mehran9675/giode/components/dropdown"
 	"github.com/mehran9675/giode/components/input"
 	"github.com/mehran9675/giode/components/scroll"
 	"github.com/mehran9675/giode/components/segmented"
@@ -28,6 +29,7 @@ type settingsPage struct {
 	tridMode    *segmented.Control
 	magikaMode  *segmented.Control
 	paths       map[string]*pathField
+	language    *dropdown.Select
 
 	reset, done, showFile, installAll *button.Button
 	menuAdd, menuRemove               *button.Button
@@ -63,10 +65,11 @@ func newSettingsPage(u *UI) *settingsPage {
 
 	num := func(key, unit string, get func(settings.Settings) int, set func(*settings.Settings, int)) {
 		f := &numberField{unit: unit, get: get, set: set, lim: settings.Limits[key]}
-		f.in = giode.Input.Text("", field.With(giode.Styles{Width: 110})).Label(key).
+		f.in = giode.Input.Text("", field.With(giode.Styles{Width: 110})).
 			OnChange(func(text string) { sp.changeNumber(f, text) })
 		sp.numbers[key] = f
 	}
+	// The fields' screen-reader labels are set by numberRow.
 	num("head_kb", "KB", func(s settings.Settings) int { return s.HeadKB }, func(s *settings.Settings, v int) { s.HeadKB = v })
 	num("entropy_sample_mb", "MB", func(s settings.Settings) int { return s.EntropySampleMB }, func(s *settings.Settings, v int) { s.EntropySampleMB = v })
 	num("trid_timeout_sec", "seconds", func(s settings.Settings) int { return s.TrIDTimeoutSec }, func(s *settings.Settings, v int) { s.TrIDTimeoutSec = v })
@@ -97,10 +100,31 @@ func newSettingsPage(u *UI) *settingsPage {
 	// Width -1 inside a fixed-width box (see segmentedBox): giode's
 	// Segmented measures each segment as wide as the space it's given.
 	modes := giode.Styles{Width: -1, Background: colSurface2, BorderColor: colRaised, Color: colText, FontSize: 13}
-	sp.tridMode = giode.Input.Segmented(tridModeLabels...).Styles(modes).
+	sp.tridMode = giode.Input.Segmented(translated(tridModeLabels)...).Styles(modes).
 		OnChange(func(i int) { sp.apply(func(s *settings.Settings) { s.TrIDMode = tridModes[i] }) })
-	sp.magikaMode = giode.Input.Segmented(tridModeLabels...).Styles(modes).
+	sp.magikaMode = giode.Input.Segmented(translated(tridModeLabels)...).Styles(modes).
 		OnChange(func(i int) { sp.apply(func(s *settings.Settings) { s.MagikaMode = tridModes[i] }) })
+	appText.add(func() {
+		relabelOptions(sp.tridMode.Options(), tridModeLabels)
+		relabelOptions(sp.magikaMode.Options(), tridModeLabels)
+	})
+
+	// Language names are in their own language; only "System default"
+	// is translated.
+	langs := []string{tr("System default")}
+	for _, l := range locales.Languages {
+		langs = append(langs, l.Name)
+	}
+	sp.language = giode.Input.Select(field.With(giode.Styles{Width: 220}), langs...).
+		OnChange(func(i int) {
+			loc := ""
+			if i > 0 {
+				loc = locales.Languages[i-1].Locale
+			}
+			sp.apply(func(s *settings.Settings) { s.Language = loc })
+			giode.SetLocale(locale(settings.Get()))
+		})
+	appText.add(func() { sp.language.Options()[0] = tr("System default") })
 
 	path := func(key string, folder bool, get func(settings.Settings) string, set func(*settings.Settings, string)) {
 		f := &pathField{get: get, set: set}
@@ -108,16 +132,17 @@ func newSettingsPage(u *UI) *settingsPage {
 		if folder {
 			placeholder = "System temporary folder"
 		}
-		f.in = giode.Input.Text(placeholder, field.With(giode.Styles{Width: -1})).Label(key).
+		f.in = giode.Input.Text("", field.With(giode.Styles{Width: -1})).Label(key).
 			OnChange(func(text string) { sp.changePath(f, text, folder) })
+		appText.add(func() { f.in.Placeholder(tr(placeholder)) })
 		f.browse = newBtn("open", "Browse…", btnSecondary, func() {
 			go func() {
 				var p string
 				var ok bool
 				if folder {
-					p, ok = platform.PickFolder("Choose a folder")
+					p, ok = platform.PickFolder(tr("Choose a folder"))
 				} else {
-					p, ok = platform.PickFile("Choose the program")
+					p, ok = platform.PickFile(tr("Choose the program"))
 				}
 				if ok {
 					u.app.Post(func() { f.in.SetText(p); sp.changePath(f, p, folder) })
@@ -136,10 +161,11 @@ func newSettingsPage(u *UI) *settingsPage {
 
 	sp.reset = newBtn("reset", "Reset to defaults", btnGhost, func() {
 		if err := settings.Set(settings.Defaults()); err != nil {
-			u.toast("error", "Could not save settings: "+err.Error())
+			u.toast("error", tr("Could not save settings: {err}", "err", err))
 		}
 		sp.load()
-		u.toast("ok", "Settings reset to defaults")
+		giode.SetLocale(locale(settings.Get()))
+		u.toast("ok", tr("Settings reset to defaults"))
 	})
 	sp.showFile = newBtn("reveal", "Show settings file", btnGhost, func() {
 		go platform.Reveal(settings.Path())
@@ -150,10 +176,10 @@ func newSettingsPage(u *UI) *settingsPage {
 			err := u.app.InstallContextActions()
 			u.app.Post(func() {
 				if err != nil {
-					u.toast("error", "Could not add the menu entry: "+err.Error())
+					u.toast("error", tr("Could not add the menu entry: {err}", "err", err))
 					return
 				}
-				u.toast("ok", "\"Inspect with AnyFile\" added to the right-click menu")
+				u.toast("ok", tr("\"Inspect with AnyFile\" added to the right-click menu"))
 			})
 		}()
 	})
@@ -162,10 +188,10 @@ func newSettingsPage(u *UI) *settingsPage {
 			err := u.app.UninstallContextActions()
 			u.app.Post(func() {
 				if err != nil {
-					u.toast("error", "Could not remove the menu entry: "+err.Error())
+					u.toast("error", tr("Could not remove the menu entry: {err}", "err", err))
 					return
 				}
-				u.toast("ok", "\"Inspect with AnyFile\" removed from the right-click menu")
+				u.toast("ok", tr("\"Inspect with AnyFile\" removed from the right-click menu"))
 			})
 		}()
 	})
@@ -195,6 +221,12 @@ func (sp *settingsPage) load() {
 			sp.tridMode.SetSelected(i)
 		}
 	}
+	sp.language.SetSelected(0)
+	for i, l := range locales.Languages {
+		if l.Locale == s.Language {
+			sp.language.SetSelected(i + 1)
+		}
+	}
 }
 
 // apply changes the settings, saves them and finds the tools again.
@@ -202,7 +234,7 @@ func (sp *settingsPage) apply(change func(s *settings.Settings)) {
 	s := settings.Get()
 	change(&s)
 	if err := settings.Set(s); err != nil {
-		sp.u.toast("error", "Could not save settings: "+err.Error())
+		sp.u.toast("error", tr("Could not save settings: {err}", "err", err))
 	}
 }
 
@@ -212,7 +244,7 @@ func (sp *settingsPage) changeNumber(f *numberField, text string) {
 	case err != nil:
 		f.err = "Enter a whole number."
 	case v < f.lim.Min || v > f.lim.Max:
-		f.err = fmt.Sprintf("Enter a number from %d to %d.", f.lim.Min, f.lim.Max)
+		f.err = tr("Enter a number from {min} to {max}.", "min", f.lim.Min, "max", f.lim.Max)
 	default:
 		f.err = ""
 		sp.apply(func(s *settings.Settings) { f.set(s, v) })
@@ -245,12 +277,18 @@ func (sp *settingsPage) view() giode.Element {
 }
 
 func (sp *settingsPage) content() giode.Element {
-	header := giode.Row(giode.Styles{Width: -1, Align: giode.AlignCenter, Justify: giode.JustifySpaceBetween, Wrap: giode.WrapNoWrap},
-		giode.Stack(giode.Styles{Gap: 4},
-			giode.Text("Settings", txtw(22, colText, giode.Styles{FontWeight: giode.FontWeightBold})),
-			giode.Text("Changes apply right away and are saved for next time.", txt(13, colMuted)),
+	// The title takes what the buttons leave, so longer translations wrap
+	// it instead of squeezing the buttons.
+	header := giode.Row(giode.Styles{Width: -1, Gap: 18, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
+		giode.Stack(giode.Styles{FlexGrow: 1, Width: -1, Gap: 4},
+			giode.Text(tr("Settings"), txtw(22, colText, giode.Styles{FontWeight: giode.FontWeightBold})),
+			giode.Text(tr("Changes apply right away and are saved for next time."), txt(13, colMuted)),
 		),
 		giode.Row(giode.Styles{Gap: 8, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap}, sp.showFile, sp.reset, sp.done),
+	)
+	general := card(giode.Styles{},
+		sectionTitle("settings", "General"),
+		sp.row("Language", "The language of AnyFile's interface. File types and the engines' own reports stay in English.", sp.language, ""),
 	)
 	ident := card(giode.Styles{},
 		sectionTitle("scan", "Identification"),
@@ -290,7 +328,7 @@ func (sp *settingsPage) content() giode.Element {
 	}
 	tools := card(giode.Styles{},
 		engineHead,
-		giode.Text("AnyFile can download each engine from its publisher and install it for your account only, without administrator rights. Or leave AnyFile to find a copy you already have (environment variable, next to AnyFile, PATH, common install folders), or choose one below.", txtw(12.5, colMuted, giode.Styles{LineHeight: 18})),
+		giode.Text(tr("AnyFile can download each engine from its publisher and install it for your account only, without administrator rights. Or leave AnyFile to find a copy you already have (environment variable, next to AnyFile, PATH, common install folders), or choose one below."), txtw(12.5, colMuted, giode.Styles{LineHeight: 18})),
 		sp.engineRow("trid", "TrID", "18,000+ format definitions, asked when the built-in engines aren't sure.", "trid_path"),
 		sp.engineRow("magika", "Magika", "Google's deep-learning content-type model, strong on text, code and files without a header.", "magika_path"),
 		sp.engineRow("7zip", "7-Zip", "Opens 7z, rar, cab, wim, vhd(x), dmg, installers and other archives.", "sevenzip_path"),
@@ -298,28 +336,30 @@ func (sp *settingsPage) content() giode.Element {
 		sp.pathRow("oodle_path", "Oodle", "oo2core_*_win64.dll, shipped with many games. It is proprietary, so AnyFile can't install it; it also looks in the opened file's folder."),
 	)
 	return giode.Box(giode.Styles{Width: -1, Justify: giode.JustifyCenter, Padding: giode.Inset{Top: 22, Right: 26, Bottom: 30, Left: 26}},
-		giode.Stack(giode.Styles{Width: -1, MaxWidth: 860, Gap: 16}, header, ident, explore, files, tools))
+		giode.Stack(giode.Styles{Width: -1, MaxWidth: 860, Gap: 16}, header, general, ident, explore, files, tools))
 }
 
 // row lays out a label and help text on the left and a control on the
-// right, with an error message under them when there is one.
+// right, with an error message under them when there is one. The label,
+// help and error are translated.
 func (sp *settingsPage) row(label, help string, control giode.Element, err string) giode.Element {
 	left := giode.Stack(giode.Styles{FlexGrow: 1, Width: -1, Gap: 3},
-		giode.Text(label, txtw(13.5, colText, giode.Styles{FontWeight: giode.FontWeightMedium})),
-		giode.Text(help, txtw(12, colMuted, giode.Styles{LineHeight: 17})),
+		giode.Text(tr(label), txtw(13.5, colText, giode.Styles{FontWeight: giode.FontWeightMedium})),
+		giode.Text(tr(help), txtw(12, colMuted, giode.Styles{LineHeight: 17})),
 	)
 	kids := []giode.Element{giode.Row(giode.Styles{Width: -1, Gap: 18, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap}, left, control)}
 	if err != "" {
 		kids = append(kids, giode.Row(giode.Styles{Gap: 6, Align: giode.AlignCenter},
-			icon("alert", colDanger, 13), giode.Text(err, txt(12, colDanger))))
+			icon("alert", colDanger, 13), giode.Text(tr(err), txt(12, colDanger))))
 	}
 	return giode.Stack(giode.Styles{Width: -1, Gap: 6, Padding: giode.SymmetricInset(0, 4)}, kids...)
 }
 
 func (sp *settingsPage) numberRow(key, label, help string) giode.Element {
 	f := sp.numbers[key]
+	f.in.Label(tr(label))
 	control := giode.Row(giode.Styles{Gap: 8, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
-		f.in, giode.Box(giode.Styles{Width: 56}, giode.Text(f.unit, txt(12.5, colMuted))))
+		f.in, giode.Box(giode.Styles{Width: 88}, giode.Text(tr(f.unit), txt(12.5, colMuted))))
 	return sp.row(label, help, control, f.err)
 }
 
@@ -330,15 +370,15 @@ func (sp *settingsPage) checkRow(key, help string) giode.Element {
 func (sp *settingsPage) pathRow(key, label, help string) giode.Element {
 	f := sp.paths[key]
 	head := giode.Stack(giode.Styles{Width: -1, Gap: 3},
-		giode.Text(label, txtw(13.5, colText, giode.Styles{FontWeight: giode.FontWeightMedium})),
-		giode.Text(help, txtw(12, colMuted, giode.Styles{LineHeight: 17})),
+		giode.Text(tr(label), txtw(13.5, colText, giode.Styles{FontWeight: giode.FontWeightMedium})),
+		giode.Text(tr(help), txtw(12, colMuted, giode.Styles{LineHeight: 17})),
 	)
 	kids := []giode.Element{head,
 		giode.Row(giode.Styles{Width: -1, Gap: 8, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
 			giode.Box(giode.Styles{FlexGrow: 1, Width: -1}, f.in), f.browse)}
 	if f.err != "" {
 		kids = append(kids, giode.Row(giode.Styles{Gap: 6, Align: giode.AlignCenter},
-			icon("alert", colDanger, 13), giode.Text(f.err, txt(12, colDanger))))
+			icon("alert", colDanger, 13), giode.Text(tr(f.err), txt(12, colDanger))))
 	}
 	return giode.Stack(giode.Styles{Width: -1, Gap: 8, Padding: giode.SymmetricInset(0, 4)}, kids...)
 }
@@ -365,7 +405,7 @@ func (sp *settingsPage) engineRow(id, label, help string, pathKeys ...string) gi
 	kids := []giode.Element{
 		giode.Stack(giode.Styles{Width: -1, Gap: 3},
 			giode.Text(label, txtw(13.5, colText, giode.Styles{FontWeight: giode.FontWeightMedium})),
-			giode.Text(help, txtw(12, colMuted, giode.Styles{LineHeight: 17})),
+			giode.Text(tr(help), txtw(12, colMuted, giode.Styles{LineHeight: 17})),
 		),
 		sp.u.engines[id].view(),
 	}
@@ -380,7 +420,7 @@ func (sp *settingsPage) engineRow(id, label, help string, pathKeys ...string) gi
 		kids = append(kids, giode.Row(giode.Styles{Width: -1, Gap: 8, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap}, row...))
 		if f.err != "" {
 			kids = append(kids, giode.Row(giode.Styles{Gap: 6, Align: giode.AlignCenter},
-				icon("alert", colDanger, 13), giode.Text(f.err, txt(12, colDanger))))
+				icon("alert", colDanger, 13), giode.Text(tr(f.err), txt(12, colDanger))))
 		}
 	}
 	return giode.Stack(giode.Styles{Width: -1, Gap: 8, Padding: giode.Inset{Top: 6, Bottom: 6}}, kids...)
@@ -389,5 +429,5 @@ func (sp *settingsPage) engineRow(id, label, help string, pathKeys ...string) gi
 // segmentedBox gives a segmented control a fixed width to divide among
 // its segments.
 func segmentedBox(c giode.Element) giode.Element {
-	return giode.Box(giode.Styles{Width: 330}, c)
+	return giode.Box(giode.Styles{Width: 372}, c)
 }

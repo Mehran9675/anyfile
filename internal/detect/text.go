@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
+
+	"github.com/mehran9675/giode/i18n"
 )
 
 // textInfo is the outcome of the encoding analysis.
@@ -211,7 +213,7 @@ func classifyText(ti textInfo, name string, full bool, r *Result) {
 		if raw, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(trim[:min(len(trim), 4096)/4*4]), "")); err == nil {
 			if inner := matchSig(raw); inner != nil {
 				r.Label = "Base64-encoded " + inner.label
-				r.note("The text decodes to " + inner.label + "; explore the file to extract it.")
+				r.note(i18n.Intl("The text decodes to {type}; explore the file to extract it.", "type", inner.label))
 			}
 		}
 	default:

@@ -28,6 +28,7 @@ import (
 	"github.com/mehran9675/anyfile/internal/explore"
 	"github.com/mehran9675/anyfile/internal/oggopus"
 	"github.com/mehran9675/anyfile/internal/oodle"
+	"github.com/mehran9675/giode/i18n"
 )
 
 func init() {
@@ -124,13 +125,13 @@ func list(p string, d *detect.Result) (*explore.Listing, error) {
 		})
 	}
 	if audio > 0 {
-		l.Notes = append(l.Notes, fmt.Sprintf("%d audio streams were stored as bare Opus packets; each is rewrapped as a standard .opus file when opened or extracted.", audio))
+		l.Notes = append(l.Notes, i18n.Intl("{count} audio streams were stored as bare Opus packets; each is rewrapped as a standard .opus file when opened or extracted.", "count", audio))
 	}
 	if assets > 0 {
 		if oodle.Find(p) == "" {
-			l.Notes = append(l.Notes, fmt.Sprintf("%d assets are Oodle compressed. %s.", assets, oodle.ErrMissing.Error()))
+			l.Notes = append(l.Notes, i18n.Intl("{count} assets are Oodle compressed. {err}.", "count", assets, "err", oodle.ErrMissing))
 		} else {
-			l.Notes = append(l.Notes, fmt.Sprintf("%d assets are Oodle compressed and are decompressed with the game's own oo2core library. Their formats are engine-internal.", assets))
+			l.Notes = append(l.Notes, i18n.Intl("{count} assets are Oodle compressed and are decompressed with the game's own oo2core library. Their formats are engine-internal.", "count", assets))
 		}
 	}
 	return l, nil

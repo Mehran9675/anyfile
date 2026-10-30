@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/mehran9675/giode/i18n"
 )
 
 // maxDownload caps a single download.
@@ -46,13 +48,13 @@ func (j *job) download(url, name, sha string, size int64) (string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("download of %s failed: %s", name, resp.Status)
+		return "", errors.New(i18n.Intl("The download of {name} failed: {status}", "name", name, "status", resp.Status))
 	}
 	if resp.ContentLength > 0 {
 		size = resp.ContentLength
 	}
 	if size > maxDownload {
-		return "", fmt.Errorf("%s is larger than expected (%d MB)", name, size>>20)
+		return "", errors.New(i18n.Intl("{name} is larger than expected.", "name", name))
 	}
 	f, err := os.CreateTemp(j.dir, ".download-*")
 	if err != nil {
@@ -60,7 +62,7 @@ func (j *job) download(url, name, sha string, size int64) (string, error) {
 	}
 	defer f.Close()
 	h := sha256.New()
-	step := "Downloading " + name
+	step := i18n.Intl("Downloading {name}", "name", name)
 	var done int64
 	buf := make([]byte, 256<<10)
 	last := time.Time{}
@@ -86,11 +88,11 @@ func (j *job) download(url, name, sha string, size int64) (string, error) {
 		}
 	}
 	if done > maxDownload {
-		return "", fmt.Errorf("%s is larger than expected", name)
+		return "", errors.New(i18n.Intl("{name} is larger than expected.", "name", name))
 	}
 	j.progress(Progress{Step: step, Done: done, Total: done})
 	if sha != "" && !strings.EqualFold(hex.EncodeToString(h.Sum(nil)), sha) {
-		return "", fmt.Errorf("%s doesn't match its published checksum; nothing was installed", name)
+		return "", errors.New(i18n.Intl("{name} doesn't match its published checksum; nothing was installed.", "name", name))
 	}
 	return f.Name(), nil
 }
@@ -156,7 +158,7 @@ func (r *release) find(name string) *asset {
 
 // githubReleases lists a repository's recent releases, newest first.
 func (j *job) githubReleases(repo string) ([]release, error) {
-	j.progress(Progress{Step: "Looking up the latest release"})
+	j.progress(Progress{Step: i18n.Intl("Looking up the latest release")})
 	req, err := http.NewRequestWithContext(j.ctx, http.MethodGet, "https://api.github.com/repos/"+repo+"/releases?per_page=30", nil)
 	if err != nil {
 		return nil, err
@@ -169,7 +171,7 @@ func (j *job) githubReleases(repo string) ([]release, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
-		return nil, errors.New("GitHub is limiting requests from this network; try again in an hour")
+		return nil, errors.New(i18n.Intl("GitHub is limiting requests from this network; try again in an hour."))
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub: %s", resp.Status)

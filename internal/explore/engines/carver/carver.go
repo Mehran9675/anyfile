@@ -12,6 +12,7 @@ import (
 	"github.com/mehran9675/anyfile/internal/carve"
 	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/anyfile/internal/explore"
+	"github.com/mehran9675/giode/i18n"
 )
 
 func init() {
@@ -54,6 +55,6 @@ func carveFile(p string, d *detect.Result) (*explore.Listing, error) {
 		}
 		l.Entries = append(l.Entries, e)
 	}
-	l.Notes = append(l.Notes, "Objects were found by scanning for embedded signatures; boundaries marked \"end estimated\" may include trailing data.")
+	l.Notes = append(l.Notes, i18n.Intl("Objects were found by scanning for embedded signatures; boundaries marked \"end estimated\" may include trailing data."))
 	return l, nil
 }

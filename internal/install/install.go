@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/mehran9675/anyfile/internal/tools"
+	"github.com/mehran9675/giode/i18n"
 )
 
 // Engine is a tool AnyFile can install.
@@ -28,8 +29,8 @@ type Engine struct {
 	// Source names where the download comes from, shown before
 	// installing.
 	Source string
-	// Size is a rough download size, shown before installing.
-	Size string
+	// SizeMB is the rough download size, shown before installing.
+	SizeMB int
 
 	// commands lists the programs the install provides, with the
 	// arguments that make each print its version.
@@ -101,7 +102,7 @@ func (e *Engine) Install(ctx context.Context, progress func(Progress)) error {
 	if err := e.fetch(ctx, j); err != nil {
 		return err
 	}
-	progress(Progress{Step: "Checking that " + e.Name + " runs"})
+	progress(Progress{Step: i18n.Intl("Checking that {name} runs", "name", e.Name)})
 	m := tools.Manifest{Source: j.source, Installed: time.Now(), Files: map[string]string{}}
 	for _, c := range e.commands {
 		rel := exe(c.name)
@@ -114,7 +115,7 @@ func (e *Engine) Install(ctx context.Context, progress func(Progress)) error {
 		}
 		version, err := smokeTest(ctx, p, c.args)
 		if err != nil {
-			return fmt.Errorf("%s doesn't run on this computer: %w", rel, err)
+			return fmt.Errorf("%s %w", i18n.Intl("{name} doesn't run on this computer:", "name", rel), err)
 		}
 		if m.Version == "" {
 			m.Version = version
@@ -144,7 +145,7 @@ func swap(root, id, stage string) error {
 	if _, err := os.Stat(final); err == nil {
 		old = filepath.Join(root, fmt.Sprintf(".%s-old-%d", id, time.Now().UnixNano()))
 		if err := os.Rename(final, old); err != nil {
-			return fmt.Errorf("the installed copy is in use; close programs using it and try again (%w)", err)
+			return fmt.Errorf("%s (%w)", i18n.Intl("The installed copy is in use; close programs using it and try again."), err)
 		}
 	}
 	if err := os.Rename(stage, final); err != nil {

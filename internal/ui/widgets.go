@@ -15,14 +15,17 @@ const (
 )
 
 // newBtn builds an action button with an icon in one of AnyFile's three
-// looks. The icon follows the label color.
+// looks. The icon follows the label color. label is translated, and
+// translated again when the language changes; buttons whose label
+// changes set it themselves with tr.
 func newBtn(iconName, label string, kind btnKind, onClick func()) *button.Button {
 	st := giode.Styles{
 		Padding:      giode.SymmetricInset(14, 9),
 		BorderRadius: 9,
 		FontSize:     13.5,
 	}
-	b := giode.Button(label)
+	b := giode.Button(tr(label))
+	appText.add(func() { b.Label(tr(label)) })
 	switch kind {
 	case btnPrimary:
 		st.BackgroundGradient = giode.Linear(120, "#6d74ff", "#4f9dff")
@@ -69,14 +72,15 @@ func card(st giode.Styles, kids ...giode.Element) giode.Element {
 	return giode.Box(base.With(st), kids...)
 }
 
+// sectionTitle heads a card; s is translated.
 func sectionTitle(iconName, s string) giode.Element {
 	return giode.Row(giode.Styles{Align: giode.AlignCenter, Gap: 8, Wrap: giode.WrapNoWrap},
 		icon(iconName, colMuted, 15),
-		giode.Text(s, txtw(12, colMuted, giode.Styles{FontWeight: giode.FontWeightSemiBold, TextTransform: giode.TextTransformUppercase})),
+		giode.Text(tr(s), txtw(12, colMuted, giode.Styles{FontWeight: giode.FontWeightSemiBold, TextTransform: giode.TextTransformUppercase})),
 	)
 }
 
-// kv is one "label  value" line.
+// kv is one "label  value" line; the label is translated.
 func kv(k, v string, mono bool) giode.Element {
 	vs := txt(13, colText)
 	if mono {
@@ -84,7 +88,7 @@ func kv(k, v string, mono bool) giode.Element {
 		vs.FontSize = 12
 	}
 	return giode.Row(giode.Styles{Width: -1, Gap: 12, Align: giode.AlignStart, Wrap: giode.WrapNoWrap},
-		giode.Box(giode.Styles{Width: 132}, giode.Text(k, txt(13, colMuted))),
+		giode.Box(giode.Styles{Width: 132}, giode.Text(tr(k), txt(13, colMuted))),
 		giode.Box(giode.Styles{FlexGrow: 1, Width: -1}, giode.Text(v, vs)),
 	)
 }

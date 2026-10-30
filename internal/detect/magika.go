@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mehran9675/anyfile/internal/tools"
+	"github.com/mehran9675/giode/i18n"
 )
 
 // MagikaVerdict is what Magika, Google's deep-learning content-type
@@ -154,7 +155,7 @@ func consultMagika(p string, r *Result) {
 	if !ok {
 		r.MagikaMissing = !tools.Magika().Found()
 		if err != nil {
-			r.note("Magika could not run: " + err.Error())
+			r.note(i18n.Intl("Magika could not run: {err}", "err", err))
 		}
 		return
 	}
@@ -180,7 +181,7 @@ func mergeMagika(r *Result, v *MagikaVerdict) {
 		return // built-in still wins; Magika's view stays visible
 	}
 	if r.Label != "" {
-		r.note("Built-in analysis suggested: " + r.Label)
+		r.note(i18n.Intl("Built-in analysis suggested: {type}", "type", r.Label))
 	}
 	ext := v.Label
 	if len(v.Extensions) > 0 {

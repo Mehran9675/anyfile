@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/mehran9675/anyfile/internal/detect"
@@ -25,6 +24,8 @@ type treeView struct {
 	group   *dropdown.Select
 	sortBy  *dropdown.Select
 	sortDir *iconbutton.Button
+
+	text relabeler // the toolbar's translated text
 
 	opts viewOptions
 	// The filter result, recomputed when the options or the tree change.
@@ -97,15 +98,14 @@ func newTreeView(u *UI, sess *session.Session) *treeView {
 		})
 
 	field := giode.Styles{Background: colSurface, Color: colText, BorderColor: colBorderHi, BorderRadius: 8}
-	t.search = giode.Input.Text("Filter by name", field.With(giode.Styles{Padding: giode.SymmetricInset(10, 7), FontSize: 13})).
-		Label("Filter by name").
+	t.search = giode.Input.Text("", field.With(giode.Styles{Padding: giode.SymmetricInset(10, 7), FontSize: 13})).
 		OnChange(func(s string) { t.setOptions(func(o *viewOptions) { o.query = strings.ToLower(strings.TrimSpace(s)) }) })
-	t.group = giode.Input.Select(field.With(giode.Styles{Width: 168}), typeGroupLabels()...).
+	t.group = giode.Input.Select(field.With(giode.Styles{Width: -1}), translated(typeGroupLabels())...).
 		OnChange(func(i int) { t.setOptions(func(o *viewOptions) { o.group = i }) })
-	t.sortBy = giode.Input.Select(field.With(giode.Styles{Width: 138}), sortLabels...).
+	t.sortBy = giode.Input.Select(field.With(giode.Styles{Width: -1}), translated(sortLabels)...).
 		OnChange(func(i int) { t.setOptions(func(o *viewOptions) { o.sort = i }) })
 	t.sortDir = giode.IconButton(icon("sortAsc", colTextSoft, 16), giode.Styles{Background: colTextSoft}).
-		Variant(giode.IconButtonGhost).Label("Sort order").
+		Variant(giode.IconButtonGhost).
 		OnClick(func() {
 			t.setOptions(func(o *viewOptions) { o.desc = !o.desc })
 			name := "sortAsc"
@@ -114,6 +114,12 @@ func newTreeView(u *UI, sess *session.Session) *treeView {
 			}
 			t.sortDir.Icon(icon(name, colTextSoft, 16))
 		})
+	t.text.add(func() {
+		t.search.Placeholder(tr("Filter by name")).Label(tr("Filter by name"))
+		relabelOptions(t.group.Options(), typeGroupLabels())
+		relabelOptions(t.sortBy.Options(), sortLabels)
+		t.sortDir.Label(tr("Sort order"))
+	})
 	return t
 }
 
@@ -168,11 +174,12 @@ func (t *treeView) view() giode.Element {
 	if root == nil {
 		return giode.Box(giode.Styles{})
 	}
+	t.text.update()
 	t.refilter(root)
 	total := countFiles(root)
-	count := fmt.Sprintf("%d items", total)
+	count := tr("{count} items", "count", total)
 	if t.opts.filtering() {
-		count = fmt.Sprintf("%d of %d", t.hits, total)
+		count = tr("{hits} of {total}", "hits", t.hits, "total", total)
 	}
 	header := giode.Row(giode.Styles{Width: -1, Align: giode.AlignCenter, Justify: giode.JustifySpaceBetween,
 		Padding: giode.Inset{Top: 14, Right: 16, Bottom: 8, Left: 18}, Wrap: giode.WrapNoWrap},
@@ -182,12 +189,15 @@ func (t *treeView) view() giode.Element {
 	toolbar := giode.Stack(giode.Styles{Width: -1, Gap: 8, Padding: giode.Inset{Right: 14, Bottom: 10, Left: 14}},
 		giode.Box(giode.Styles{Width: -1}, t.search),
 		giode.Row(giode.Styles{Width: -1, Gap: 6, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
-			t.group, t.sortBy, t.sortDir),
+			// The two lists share the width, which translations need.
+			giode.Box(giode.Styles{FlexGrow: 1, Width: -1}, t.group),
+			giode.Box(giode.Styles{FlexGrow: 1, Width: -1}, t.sortBy),
+			t.sortDir),
 	)
 	var body giode.Element = t.tree
 	if t.opts.filtering() && t.hits == 0 {
 		body = giode.Box(giode.Styles{Width: -1, Padding: giode.UniformInset(18)},
-			giode.Text("No files match the filter.", txt(12.5, colMuted)))
+			giode.Text(tr("No files match the filter."), txt(12.5, colMuted)))
 	}
 	return giode.Stack(giode.Styles{Width: -1, Height: -1},
 		header,

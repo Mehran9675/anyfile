@@ -19,6 +19,7 @@ import (
 	"github.com/mehran9675/anyfile/internal/explore"
 	"github.com/mehran9675/anyfile/internal/oodle"
 	"github.com/mehran9675/anyfile/internal/platform"
+	"github.com/mehran9675/giode/i18n"
 )
 
 // Session is one opened file and everything discovered inside it.
@@ -65,9 +66,11 @@ func (s *Session) Selected() *Node { return s.selected }
 // views that sort or filter the tree know when to recompute.
 func (s *Session) Version() int { return s.version }
 
-func (s *Session) say(kind, format string, a ...any) {
+// say reports an outcome: message is English text, translated by
+// i18n, with {placeholders} filled from name, value pairs.
+func (s *Session) say(kind, message string, data ...any) {
 	if s.toast != nil {
-		s.toast(kind, fmt.Sprintf(format, a...))
+		s.toast(kind, i18n.Intl(message, data...))
 	}
 }
 
@@ -129,11 +132,11 @@ func (s *Session) Open(p string) {
 	}
 	st, err := os.Stat(p)
 	if err != nil {
-		s.say("error", "Cannot open %s: %v", filepath.Base(p), err)
+		s.say("error", "Cannot open {name}: {err}", "name", filepath.Base(p), "err", err)
 		return
 	}
 	if st.IsDir() {
-		s.say("error", "%s is a folder; open a file inside it.", filepath.Base(p))
+		s.say("error", "{name} is a folder; open a file inside it.", "name", filepath.Base(p))
 		return
 	}
 	s.Close()
@@ -172,7 +175,7 @@ func (s *Session) DeepScan(n *Node) {
 func (s *Session) AskTrID(n *Node) {
 	s.prepare(n, func() {
 		local, name := n.Local, n.Name
-		n.Busy = "Asking TrID…"
+		n.Busy = i18n.Intl("Asking TrID…")
 		s.background(func() func(bool) {
 			r := detect.Detect(local, detect.Options{Name: name, ForceTrID: true})
 			return func(current bool) {
@@ -183,7 +186,7 @@ func (s *Session) AskTrID(n *Node) {
 				s.version++
 				n.Result = r
 				if !r.TrIDRan {
-					s.say("error", "TrID is not available. Put trid.exe and triddefs.trd next to AnyFile or set ANYFILE_TRID.")
+					s.say("error", "TrID is not available. Install it in Settings, or set its path there.")
 				}
 			}
 		})
@@ -194,7 +197,7 @@ func (s *Session) AskTrID(n *Node) {
 func (s *Session) AskMagika(n *Node) {
 	s.prepare(n, func() {
 		local, name := n.Local, n.Name
-		n.Busy = "Asking Magika…"
+		n.Busy = i18n.Intl("Asking Magika…")
 		s.background(func() func(bool) {
 			r := detect.Detect(local, detect.Options{Name: name, ForceMagika: true})
 			return func(current bool) {
@@ -205,7 +208,7 @@ func (s *Session) AskMagika(n *Node) {
 				s.version++
 				n.Result = r
 				if !r.MagikaRan {
-					s.say("error", "Magika is not available. Install it (pip install magika) or set its path in Settings.")
+					s.say("error", "Magika is not available. Install it in Settings, or set its path there.")
 				}
 			}
 		})
@@ -239,9 +242,9 @@ func (s *Session) prepareThen(n *Node, then func(ok bool)) {
 	n.preparing = true
 	local, entry, name := n.Local, n.Entry, n.Name
 	dst := filepath.Join(s.tmp, fmt.Sprint(n.ID), explore.SafeName(n.Name))
-	n.Busy = "Identifying…"
+	n.Busy = i18n.Intl("Identifying…")
 	if local == "" {
-		n.Busy = "Extracting…"
+		n.Busy = i18n.Intl("Extracting…")
 	}
 	s.background(func() func(bool) {
 		var err error
@@ -268,7 +271,7 @@ func (s *Session) prepareThen(n *Node, then func(ok bool)) {
 			n.waiters = nil
 			ok := current && err == nil
 			if current && err != nil {
-				n.Err = "Could not extract: " + err.Error()
+				n.Err = i18n.Intl("Could not extract: {err}", "err", err)
 			}
 			if ok {
 				s.version++
@@ -325,9 +328,9 @@ func (s *Session) explore(n *Node, deep bool) {
 	}
 	n.exploring = true
 	local, r := n.Local, n.Result
-	n.Busy = "Exploring…"
+	n.Busy = i18n.Intl("Exploring…")
 	if deep {
-		n.Busy = "Deep scanning…"
+		n.Busy = i18n.Intl("Deep scanning…")
 	}
 	s.background(func() func(bool) {
 		var l *explore.Listing
@@ -345,7 +348,7 @@ func (s *Session) explore(n *Node, deep bool) {
 			}
 			switch {
 			case err != nil && deep:
-				n.Err = "Deep scan found no embedded files."
+				n.Err = i18n.Intl("Deep scan found no embedded files.")
 			case err != nil:
 				n.Explored, n.Leaf = true, true
 				if !errors.Is(err, explore.ErrNotContainer) || strings.Contains(err.Error(), "(") {
@@ -362,7 +365,7 @@ func (s *Session) explore(n *Node, deep bool) {
 				s.expandNode(n)
 				s.prefetch(n)
 				if deep {
-					s.say("ok", "Deep scan found %d embedded object(s).", len(l.Entries))
+					s.say("ok", "Deep scan found {count} embedded objects.", "count", len(l.Entries))
 				}
 			}
 		}
@@ -453,7 +456,7 @@ func (s *Session) handOff(n *Node, choose bool) {
 		go func() {
 			p, retyped, err := viewPath(local, name, r, dir)
 			if err != nil {
-				s.say("error", "Could not prepare %s: %v", name, err)
+				s.say("error", "Could not prepare {name}: {err}", "name", name, "err", err)
 				return
 			}
 			if choose {
@@ -463,11 +466,11 @@ func (s *Session) handOff(n *Node, choose bool) {
 			}
 			switch {
 			case err != nil:
-				s.say("error", "%v", err)
+				s.say("error", err.Error())
 			case retyped != "":
-				s.say("ok", "Opened %s as .%s, its real type.", name, retyped)
+				s.say("ok", "Opened {name} as .{ext}, its real type.", "name", name, "ext", retyped)
 			default:
-				s.say("ok", "Opened %s in its viewer.", name)
+				s.say("ok", "Opened {name} in its viewer.", "name", name)
 			}
 		}()
 	})
@@ -479,7 +482,7 @@ func (s *Session) Reveal(n *Node) {
 		local := n.Local
 		go func() {
 			if err := platform.Reveal(local); err != nil {
-				s.say("error", "%v", err)
+				s.say("error", err.Error())
 			}
 		}()
 	})
@@ -492,10 +495,10 @@ func (s *Session) SaveAs(n *Node, dir string) {
 		go func() {
 			dst := uniquePath(filepath.Join(dir, explore.SafeName(name)))
 			if err := copyFile(src, dst); err != nil {
-				s.say("error", "Could not save %s: %v", name, err)
+				s.say("error", "Could not save {name}: {err}", "name", name, "err", err)
 				return
 			}
-			s.say("ok", "Saved %s", dst)
+			s.say("ok", "Saved {path}", "path", dst)
 		}()
 	})
 }
@@ -526,7 +529,7 @@ func (s *Session) ExtractAll(n *Node, dir string) {
 	}
 	collect(n)
 	if len(jobs) == 0 {
-		s.say("error", "%s has no files to extract.", n.Name)
+		s.say("error", "{name} has no files to extract.", "name", n.Name)
 		return
 	}
 	base := explore.SafeName(strings.TrimSuffix(n.Name, filepath.Ext(n.Name)))
@@ -534,7 +537,7 @@ func (s *Session) ExtractAll(n *Node, dir string) {
 		base = explore.SafeName(n.Name)
 	}
 	out := uniquePath(filepath.Join(dir, base))
-	n.Busy = fmt.Sprintf("Extracting %d files…", len(jobs))
+	n.Busy = i18n.Intl("Extracting {count} files…", "count", len(jobs))
 	release := func() {}
 	if s.awake != nil {
 		if r, err := s.awake("Extracting files"); err == nil {
@@ -558,9 +561,10 @@ func (s *Session) ExtractAll(n *Node, dir string) {
 			}
 		}
 		if failed > 0 {
-			s.say("error", "Extracted %d of %d files to %s (%d failed).", len(jobs)-failed, len(jobs), out, failed)
+			s.say("error", "Extracted {done} of {count} files to {path} ({failed} failed).",
+				"done", len(jobs)-failed, "count", len(jobs), "path", out, "failed", failed)
 		} else {
-			s.say("ok", "Extracted %d files to %s", len(jobs), out)
+			s.say("ok", "Extracted {count} files to {path}", "count", len(jobs), "path", out)
 		}
 		return func(bool) { n.Busy = "" }
 	})

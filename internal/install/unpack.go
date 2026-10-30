@@ -13,6 +13,7 @@ import (
 	"github.com/ulikunitz/xz"
 
 	"github.com/mehran9675/anyfile/internal/tools"
+	"github.com/mehran9675/giode/i18n"
 )
 
 // keepFunc decides which archive members to install: it gets a
@@ -40,7 +41,7 @@ func keepNames(names ...string) keepFunc {
 // unzip unpacks a zip archive, then deletes it.
 func (j *job) unzip(archive string, keep keepFunc) error {
 	defer os.Remove(archive)
-	j.progress(Progress{Step: "Unpacking"})
+	j.progress(Progress{Step: i18n.Intl("Unpacking")})
 	zr, err := zip.OpenReader(archive)
 	if err != nil {
 		return fmt.Errorf("the download isn't a valid zip archive: %w", err)
@@ -72,7 +73,7 @@ func (j *job) unzip(archive string, keep keepFunc) error {
 // for executables) go to the system's tar, which macOS and Linux have.
 func (j *job) untarXZ(archive string, keep keepFunc) error {
 	defer os.Remove(archive)
-	j.progress(Progress{Step: "Unpacking"})
+	j.progress(Progress{Step: i18n.Intl("Unpacking")})
 	err := j.untarXZGo(archive, keep)
 	if err != nil && strings.Contains(err.Error(), "unsupported filter") {
 		return j.untarXZSystem(archive, keep)

@@ -40,10 +40,10 @@ func newInspector(u *UI) *inspector {
 	in.view_ = newBtn("eye", "Open in viewer", btnPrimary, act((*session.Session).View))
 	in.with = newBtn("external", "Open with…", btnSecondary, act((*session.Session).ViewWith))
 	in.save = newBtn("download", "Save file…", btnSecondary, act(func(s *session.Session, n *session.Node) {
-		u.pickFolder("Save "+n.Name+" to…", func(dir string) { s.SaveAs(n, dir) })
+		u.pickFolder(tr("Save {name} to…", "name", n.Name), func(dir string) { s.SaveAs(n, dir) })
 	}))
 	in.extract = newBtn("extract", "Extract all…", btnSecondary, act(func(s *session.Session, n *session.Node) {
-		u.pickFolder("Extract the contents of "+n.Name+" to…", func(dir string) { s.ExtractAll(n, dir) })
+		u.pickFolder(tr("Extract the contents of {name} to…", "name", n.Name), func(dir string) { s.ExtractAll(n, dir) })
 	}))
 	in.reveal = newBtn("reveal", "Show in folder", btnGhost, act((*session.Session).Reveal))
 	in.deep = newBtn("scan", "Deep scan", btnGhost, act((*session.Session).DeepScan))
@@ -97,9 +97,9 @@ func (in *inspector) content() giode.Element {
 func (in *inspector) header(n *session.Node) giode.Element {
 	cat := n.Category()
 	c := catColor(cat)
-	label := "Identifying…"
+	label := tr("Identifying…")
 	if n.Dir {
-		label = fmt.Sprintf("Folder inside %s", n.Container().Name)
+		label = tr("Folder inside {name}", "name", n.Container().Name)
 	} else if r := n.Result; r != nil {
 		label = r.Label
 	}
@@ -111,12 +111,12 @@ func (in *inspector) header(n *session.Node) giode.Element {
 		}
 		crumbs = append(crumbs, giode.Text(s, txtw(12, colMuted, giode.Styles{MaxLines: 1})))
 	}
-	chips := []giode.Element{chip(string(cat), c, "tag")}
+	chips := []giode.Element{chip(tr(string(cat)), c, "tag")}
 	if r := n.Result; r != nil && !n.Dir {
 		if r.Ext != "" {
 			chips = append(chips, chip("."+r.Ext, colTextSoft, ""))
 		}
-		chips = append(chips, chip(fmt.Sprintf("%s · %.0f%%", r.Source, r.Confidence*100), confColor(r.Confidence), "check"))
+		chips = append(chips, chip(fmt.Sprintf("%s · %.0f%%", tr(string(r.Source)), r.Confidence*100), confColor(r.Confidence), "check"))
 	}
 	if n.Size >= 0 {
 		chips = append(chips, chip(detect.HumanSize(n.Size), colTextSoft, ""))
@@ -164,25 +164,15 @@ func (in *inspector) banners(n *session.Node) []giode.Element {
 		out = append(out, banner(colWarning, "alert", n.Err))
 	}
 	if b := badgeFor(n); b != "" && n.Result != nil {
-		ext := n.Ext()
-		what := "has no extension"
-		if ext != "" {
-			what = "is named ." + ext
+		text := tr("This file has no extension but is really {type} (.{ext}). Viewing hands it to the app for .{ext}.",
+			"type", n.Result.Label, "ext", n.Result.Ext)
+		if name := n.Ext(); name != "" {
+			text = tr("This file is named .{name} but is really {type} (.{ext}). Viewing hands it to the app for .{ext}.",
+				"name", name, "type", n.Result.Label, "ext", n.Result.Ext)
 		}
-		out = append(out, banner(colAccent2, "info", fmt.Sprintf("This file %s but is really %s (.%s). Viewing hands it to the app for .%s.", what, article(n.Result.Label), n.Result.Ext, n.Result.Ext)))
+		out = append(out, banner(colAccent2, "info", text))
 	}
 	return out
-}
-
-func article(s string) string {
-	if s == "" {
-		return s
-	}
-	switch strings.ToLower(s[:1]) {
-	case "a", "e", "i", "o", "u":
-		return "an " + s
-	}
-	return "a " + s
 }
 
 func (in *inspector) actions(n *session.Node) giode.Element {
@@ -200,9 +190,9 @@ func (in *inspector) actions(n *session.Node) giode.Element {
 		}
 	}
 	if container || n.Dir {
-		in.extract.Label("Extract all…")
+		in.extract.Label(tr("Extract all…"))
 		if !n.Dir {
-			in.extract.Label(fmt.Sprintf("Extract %d items…", countFiles(n)))
+			in.extract.Label(tr("Extract {count} items…", "count", countFiles(n)))
 		}
 		b = append(b, in.extract)
 	}
@@ -237,37 +227,37 @@ func (in *inspector) identity(n *session.Node) giode.Element {
 	r := n.Result
 	rows := []giode.Element{sectionTitle("scan", "Identification")}
 	if r == nil {
-		rows = append(rows, giode.Text("Analysing…", txt(13, colMuted)))
+		rows = append(rows, giode.Text(tr("Analysing…"), txt(13, colMuted)))
 		return card(giode.Styles{}, rows...)
 	}
 	mime := r.MIME
 	if mime == "" {
-		mime = "Unknown"
+		mime = tr("Unknown")
 	}
 	rows = append(rows,
 		kv("Type", r.Label, false),
-		kv("Category", string(r.Category), false),
+		kv("Category", tr(string(r.Category)), false),
 		kv("Extension", dash("."+r.Ext, r.Ext == ""), false),
 		kv("Media type", mime, true),
 		kv("Identified by", engineText(r), false),
 		giode.Row(giode.Styles{Width: -1, Gap: 12, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
-			giode.Box(giode.Styles{Width: 132}, giode.Text("Confidence", txt(13, colMuted))),
+			giode.Box(giode.Styles{Width: 132}, giode.Text(tr("Confidence"), txt(13, colMuted))),
 			bar(float32(r.Confidence), confColor(r.Confidence), 180),
 			giode.Text(fmt.Sprintf("%.0f%%", r.Confidence*100), txt(12.5, colTextSoft)),
 		),
 		giode.Row(giode.Styles{Width: -1, Gap: 12, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
-			giode.Box(giode.Styles{Width: 132}, giode.Text("Entropy", txt(13, colMuted))),
+			giode.Box(giode.Styles{Width: 132}, giode.Text(tr("Entropy"), txt(13, colMuted))),
 			bar(float32(r.Entropy/8), entropyColor(r.Entropy), 180),
-			giode.Text(fmt.Sprintf("%.2f bits/byte · %s", r.Entropy, entropyWord(r.Entropy)), txt(12.5, colTextSoft)),
+			giode.Text(tr("{bits} bits/byte", "bits", fmt.Sprintf("%.2f", r.Entropy))+" · "+tr(entropyWord(r.Entropy)), txt(12.5, colTextSoft)),
 		),
 	)
 	if n.Listing != nil {
-		rows = append(rows, kv("Contents", fmt.Sprintf("%d items · read by %s", countFiles(n), n.Listing.Engine), false))
+		rows = append(rows, kv("Contents", tr("{count} items", "count", countFiles(n))+" · "+tr("read by {engine}", "engine", n.Listing.Engine), false))
 		if n.Listing.Format != "" {
 			rows = append(rows, kv("Container format", n.Listing.Format, false))
 		}
 	} else if n.Leaf {
-		rows = append(rows, kv("Contents", "Nothing extractable inside. Open it in its viewer.", false))
+		rows = append(rows, kv("Contents", tr("Nothing extractable inside. Open it in its viewer."), false))
 	}
 	if n.Local != "" && !n.IsRoot() {
 		rows = append(rows, kv("Extracted copy", n.Local, true))
@@ -277,7 +267,7 @@ func (in *inspector) identity(n *session.Node) giode.Element {
 
 func dash(s string, empty bool) string {
 	if empty {
-		return "None"
+		return tr("None")
 	}
 	return s
 }
@@ -285,13 +275,13 @@ func dash(s string, empty bool) string {
 func engineText(r *detect.Result) string {
 	switch r.Source {
 	case detect.SrcSignature:
-		return "Built-in signature database"
+		return tr("Built-in signature database")
 	case detect.SrcStructure:
-		return "Built-in structural analysis"
+		return tr("Built-in structural analysis")
 	case detect.SrcTrID:
 		return "TrID"
 	case detect.SrcMagika:
-		return "Magika (deep-learning model)"
+		return tr("Magika (deep-learning model)")
 	}
 	var asked []string
 	if r.MagikaRan {
@@ -300,10 +290,13 @@ func engineText(r *detect.Result) string {
 	if r.TrIDRan {
 		asked = append(asked, "TrID")
 	}
-	if len(asked) > 0 {
-		return "AnyFile heuristics (" + strings.Join(asked, " and ") + " consulted)"
+	switch len(asked) {
+	case 1:
+		return tr("AnyFile heuristics ({engine} consulted)", "engine", asked[0])
+	case 2:
+		return tr("AnyFile heuristics ({engine} and {engine2} consulted)", "engine", asked[0], "engine2", asked[1])
 	}
-	return "AnyFile heuristics"
+	return tr("AnyFile heuristics")
 }
 
 func entropyColor(e float64) string {
@@ -340,7 +333,7 @@ func (in *inspector) details(n *session.Node) giode.Element {
 		if d.Key == "Entropy" {
 			continue
 		}
-		rows = append(rows, kv(d.Key, d.Value, false))
+		rows = append(rows, kv(d.Key, tr(d.Value), false))
 	}
 	notes := append([]string(nil), r.Notes...)
 	if n.Listing != nil {
@@ -368,25 +361,25 @@ func (in *inspector) magikaCard(n *session.Node) giode.Element {
 	}
 	switch {
 	case r == nil:
-		out = append(out, muted("Waiting for the built-in analysis…"))
+		out = append(out, muted(tr("Waiting for the built-in analysis…")))
 	case !tools.Magika().Found():
 		offer := in.u.inspectorOffer("magika")
-		out = append(out, muted("Magika is not installed. It is Google's deep-learning content-type model (200+ types, strong on text, code and files without a header). "+installHint(offer)))
+		out = append(out, muted(tr("Magika is not installed. It is Google's deep-learning content-type model (200+ types, strong on text, code and files without a header).")+" "+installHint(offer)))
 		if offer != nil {
 			out = append(out, offer)
 		}
 	case !r.MagikaRan:
-		out = append(out, muted("Not needed: the built-in engines were confident. Use \"Ask Magika\" for a second opinion."))
+		out = append(out, muted(tr("Not needed: the built-in engines were confident. Use \"Ask Magika\" for a second opinion.")))
 	default:
 		v := r.Magika
 		label := v.Description
 		if !v.Known() {
-			label = "No confident answer"
+			label = tr("No confident answer")
 		}
 		out = append(out,
 			kv("Verdict", label, false),
 			giode.Row(giode.Styles{Width: -1, Gap: 12, Align: giode.AlignCenter, Wrap: giode.WrapNoWrap},
-				giode.Box(giode.Styles{Width: 132}, giode.Text("Model score", txt(13, colMuted))),
+				giode.Box(giode.Styles{Width: 132}, giode.Text(tr("Model score"), txt(13, colMuted))),
 				bar(float32(v.Score), confColor(v.Score), 180),
 				giode.Text(fmt.Sprintf("%.0f%%", v.Score*100), txt(12.5, colTextSoft)),
 			),
@@ -401,7 +394,7 @@ func (in *inspector) magikaCard(n *session.Node) giode.Element {
 			out = append(out, kv("Model's raw guess", v.RawDescription, false))
 		}
 		if r.Source != detect.SrcMagika && v.Known() {
-			out = append(out, muted("The verdict above comes from a more confident engine; Magika's answer is shown for comparison."))
+			out = append(out, muted(tr("The verdict above comes from a more confident engine; Magika's answer is shown for comparison.")))
 		}
 	}
 	return card(giode.Styles{}, out...)
@@ -412,17 +405,17 @@ func (in *inspector) tridCard(n *session.Node) giode.Element {
 	out := []giode.Element{sectionTitle("sparkles", "TrID")}
 	switch {
 	case r == nil:
-		out = append(out, giode.Text("Waiting for the built-in analysis…", txt(13, colMuted)))
+		out = append(out, giode.Text(tr("Waiting for the built-in analysis…"), txt(13, colMuted)))
 	case !tools.TrID().Found():
 		offer := in.u.inspectorOffer("trid")
-		out = append(out, giode.Text("TrID is not installed. Built-in engines handle detection; TrID adds 18,000+ definitions. "+installHint(offer), txtw(12.5, colMuted, giode.Styles{LineHeight: 18})))
+		out = append(out, giode.Text(tr("TrID is not installed. Built-in engines handle detection; TrID adds 18,000+ definitions.")+" "+installHint(offer), txtw(12.5, colMuted, giode.Styles{LineHeight: 18})))
 		if offer != nil {
 			out = append(out, offer)
 		}
 	case !r.TrIDRan:
-		out = append(out, giode.Text("Not needed: the built-in engines were confident. Use \"Ask TrID\" for a second opinion.", txt(12.5, colMuted)))
+		out = append(out, giode.Text(tr("Not needed: the built-in engines were confident. Use \"Ask TrID\" for a second opinion."), txt(12.5, colMuted)))
 	case len(r.Candidates) == 0:
-		out = append(out, giode.Text("TrID could not identify this file; AnyFile's own analysis was used.", txt(12.5, colMuted)))
+		out = append(out, giode.Text(tr("TrID could not identify this file; AnyFile's own analysis was used."), txt(12.5, colMuted)))
 	default:
 		for _, c := range r.Candidates {
 			ext := c.Ext
@@ -444,7 +437,7 @@ func (in *inspector) hashes(n *session.Node) giode.Element {
 	out := []giode.Element{sectionTitle("hash", "Checksums")}
 	if n.Hashes == nil {
 		out = append(out, giode.Row(giode.Styles{Gap: 10, Align: giode.AlignCenter},
-			giode.Spinner(giode.Styles{Width: 14, Height: 14, Color: colAccent}), giode.Text("Computing…", txt(12.5, colMuted))))
+			giode.Spinner(giode.Styles{Width: 14, Height: 14, Color: colAccent}), giode.Text(tr("Computing…"), txt(12.5, colMuted))))
 		return card(giode.Styles{}, out...)
 	}
 	for _, k := range []string{"MD5", "SHA-1", "SHA-256"} {
