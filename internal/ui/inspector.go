@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mehran9675/anyfile/internal/detect"
-	"github.com/mehran9675/anyfile/internal/platform"
-	"github.com/mehran9675/anyfile/internal/session"
-	"github.com/mehran9675/anyfile/internal/tools"
 	"github.com/mehran9675/giode"
 	"github.com/mehran9675/giode/components/button"
 	"github.com/mehran9675/giode/components/scroll"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/platform"
+	"github.com/xmhrnx/anyfile/internal/session"
+	"github.com/xmhrnx/anyfile/internal/tools"
 )
 
 // inspector is the right panel: what the selected item is, what can be

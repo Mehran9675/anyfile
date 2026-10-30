@@ -2,7 +2,7 @@
 
 A desktop app that tells you what any file really is, lets you explore everything inside it, and hands each item to the viewer your system already uses for that type. AnyFile never renders content itself.
 
-Built in Go with [giode](https://github.com/Mehran9675/giode).
+Built in Go with [giode](https://github.com/xmhrnx/giode).
 
 ## What it does
 
@@ -56,7 +56,7 @@ Translations live in `internal/locales/<language>.json` and are keyed by the Eng
 
 ## Build and run
 
-AnyFile is built with the [giode CLI](https://github.com/Mehran9675/giode-cli), configured by `giode.toml`:
+AnyFile is built with the [giode CLI](https://github.com/xmhrnx/giode-cli), configured by `giode.toml`:
 
 ```bash
 go install github.com/mehran9675/giode-cli/cmd/giode@latest

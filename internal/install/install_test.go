@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mehran9675/anyfile/internal/tools"
+	"github.com/xmhrnx/anyfile/internal/tools"
 )
 
 func TestChecksumFor(t *testing.T) {

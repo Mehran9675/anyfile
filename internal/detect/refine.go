@@ -14,10 +14,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/mehran9675/anyfile/internal/codec"
+	"github.com/xmhrnx/anyfile/internal/codec"
 
-	"github.com/mehran9675/anyfile/internal/cfb"
 	"github.com/mehran9675/giode/i18n"
+	"github.com/xmhrnx/anyfile/internal/cfb"
 )
 
 // refineZip tells the many ZIP-based formats apart by their members.

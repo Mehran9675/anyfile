@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mehran9675/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/detect"
 )
 
 // Entry is one item inside a file.

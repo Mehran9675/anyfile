@@ -4,8 +4,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mehran9675/anyfile/internal/detect"
-	"github.com/mehran9675/anyfile/internal/session"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/session"
 )
 
 // typeGroup is one entry of the "type" filter.

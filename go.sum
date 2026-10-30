@@ -34,8 +34,6 @@ github.com/josephspurrier/goversioninfo v1.7.0 h1:LQzXOlVm/CtbwJ9/UHl5a2HT0BjcLA
 github.com/josephspurrier/goversioninfo v1.7.0/go.mod h1:z9y0r2G6g5jwSJaFE0cxW9to0aeIibK7UYeLx53aQRU=
 github.com/klauspost/compress v1.20.3 h1:zWNoFqq/lSuYQRim3dUXlXeA0IqwuZGicdG5ZTfY5j4=
 github.com/klauspost/compress v1.20.3/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI=
-github.com/mehran9675/giode v0.1.9-alpha.1 h1:dVcTVs0IqkhMjL22dnL00gvdHjBBfIrHbN0CL6zJF/8=
-github.com/mehran9675/giode v0.1.9-alpha.1/go.mod h1:Lh6RVGzsMX8csfjxuyjjXPzPPJGilh2lpu4aeDYvBJ8=
 github.com/mehran9675/giode v0.1.18-alpha.1 h1:sIIUqaMqURFpnjcn4aBI7MjGVO5O/LpMJCvQZn8ehPo=
 github.com/mehran9675/giode v0.1.18-alpha.1/go.mod h1:Lh6RVGzsMX8csfjxuyjjXPzPPJGilh2lpu4aeDYvBJ8=
 github.com/ncruces/zenity v0.10.15 h1:UaHekkxwt7QjoZmMWtzhqSEtQT97/Cux6FDBWwfyuqk=

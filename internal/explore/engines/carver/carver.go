@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mehran9675/anyfile/internal/settings"
+	"github.com/xmhrnx/anyfile/internal/settings"
 
-	"github.com/mehran9675/anyfile/internal/carve"
-	"github.com/mehran9675/anyfile/internal/detect"
-	"github.com/mehran9675/anyfile/internal/explore"
 	"github.com/mehran9675/giode/i18n"
+	"github.com/xmhrnx/anyfile/internal/carve"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/explore"
 )
 
 func init() {

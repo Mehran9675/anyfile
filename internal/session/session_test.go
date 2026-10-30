@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mehran9675/anyfile/internal/detect"
-	_ "github.com/mehran9675/anyfile/internal/explore/engines/all"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	_ "github.com/xmhrnx/anyfile/internal/explore/engines/all"
 )
 
 // uiLoop stands in for giode's UI goroutine: post queues functions and

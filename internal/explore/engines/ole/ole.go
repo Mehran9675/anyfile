@@ -10,9 +10,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/mehran9675/anyfile/internal/cfb"
-	"github.com/mehran9675/anyfile/internal/detect"
-	"github.com/mehran9675/anyfile/internal/explore"
+	"github.com/xmhrnx/anyfile/internal/cfb"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/explore"
 )
 
 func init() {

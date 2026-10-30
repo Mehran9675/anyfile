@@ -13,9 +13,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/mehran9675/anyfile/internal/detect"
-	"github.com/mehran9675/anyfile/internal/explore"
-	"github.com/mehran9675/anyfile/internal/explore/engines/sevenzip"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/explore"
+	"github.com/xmhrnx/anyfile/internal/explore/engines/sevenzip"
 )
 
 func init() {

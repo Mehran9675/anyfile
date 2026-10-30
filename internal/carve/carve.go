@@ -15,7 +15,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/mehran9675/anyfile/internal/settings"
+	"github.com/xmhrnx/anyfile/internal/settings"
 )
 
 // Hit is one embedded object.

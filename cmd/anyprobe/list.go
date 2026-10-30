@@ -5,7 +5,7 @@ import (
 	"path"
 	"sort"
 
-	"github.com/mehran9675/anyfile/internal/explore"
+	"github.com/xmhrnx/anyfile/internal/explore"
 )
 
 // summary prints how many entries of each top-level folder a listing has.

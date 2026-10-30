@@ -12,8 +12,8 @@ import (
 
 	"github.com/ulikunitz/xz"
 
-	"github.com/mehran9675/anyfile/internal/tools"
 	"github.com/mehran9675/giode/i18n"
+	"github.com/xmhrnx/anyfile/internal/tools"
 )
 
 // keepFunc decides which archive members to install: it gets a

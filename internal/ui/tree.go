@@ -3,12 +3,12 @@ package ui
 import (
 	"strings"
 
-	"github.com/mehran9675/anyfile/internal/detect"
-	"github.com/mehran9675/anyfile/internal/session"
 	"github.com/mehran9675/giode"
 	"github.com/mehran9675/giode/components/dropdown"
 	"github.com/mehran9675/giode/components/iconbutton"
 	"github.com/mehran9675/giode/components/input"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/session"
 )
 
 // treeView is one tab's left panel: the opened file and everything

@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/mehran9675/anyfile/internal/session"
+	"github.com/xmhrnx/anyfile/internal/session"
 )
 
 func tree() (root, docs, book, img, notes *session.Node) {

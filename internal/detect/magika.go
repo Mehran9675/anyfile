@@ -8,8 +8,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/mehran9675/anyfile/internal/tools"
 	"github.com/mehran9675/giode/i18n"
+	"github.com/xmhrnx/anyfile/internal/tools"
 )
 
 // MagikaVerdict is what Magika, Google's deep-learning content-type

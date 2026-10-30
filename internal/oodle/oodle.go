@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mehran9675/anyfile/internal/settings"
+	"github.com/xmhrnx/anyfile/internal/settings"
 )
 
 // ErrMissing means no Oodle library could be found.

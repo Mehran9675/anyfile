@@ -12,8 +12,8 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/mehran9675/anyfile/internal/detect"
-	"github.com/mehran9675/anyfile/internal/explore"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/explore"
 )
 
 func init() {

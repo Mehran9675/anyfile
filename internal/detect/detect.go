@@ -8,12 +8,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mehran9675/anyfile/internal/settings"
+	"github.com/xmhrnx/anyfile/internal/settings"
 
-	"github.com/mehran9675/anyfile/internal/carve"
-	"github.com/mehran9675/anyfile/internal/cfb"
-	"github.com/mehran9675/anyfile/internal/tools"
 	"github.com/mehran9675/giode/i18n"
+	"github.com/xmhrnx/anyfile/internal/carve"
+	"github.com/xmhrnx/anyfile/internal/cfb"
+	"github.com/xmhrnx/anyfile/internal/tools"
 )
 
 // Options tune Detect.

@@ -5,9 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mehran9675/anyfile/internal/locales"
-	"github.com/mehran9675/anyfile/internal/platform"
-	"github.com/mehran9675/anyfile/internal/settings"
 	"github.com/mehran9675/giode"
 	"github.com/mehran9675/giode/components/button"
 	"github.com/mehran9675/giode/components/dropdown"
@@ -15,6 +12,9 @@ import (
 	"github.com/mehran9675/giode/components/scroll"
 	"github.com/mehran9675/giode/components/segmented"
 	"github.com/mehran9675/giode/components/toggle"
+	"github.com/xmhrnx/anyfile/internal/locales"
+	"github.com/xmhrnx/anyfile/internal/platform"
+	"github.com/xmhrnx/anyfile/internal/settings"
 )
 
 // settingsPage edits the limits and preferences in package settings.

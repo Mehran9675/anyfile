@@ -8,9 +8,9 @@ import (
 	"gioui.org/font/gofont"
 	"gioui.org/font/opentype"
 
-	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/giode"
 	"github.com/mehran9675/giode/styles/properties"
+	"github.com/xmhrnx/anyfile/internal/detect"
 )
 
 // Palette: a deep slate canvas with an indigo→cyan accent.

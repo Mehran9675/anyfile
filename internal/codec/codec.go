@@ -15,7 +15,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/ulikunitz/xz"
 
-	"github.com/mehran9675/anyfile/internal/settings"
+	"github.com/xmhrnx/anyfile/internal/settings"
 )
 
 // Open returns a decompressing reader for ext (gz, tgz, bz2, xz, zst)

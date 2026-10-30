@@ -11,8 +11,8 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/mehran9675/anyfile/internal/explore/engines/all"
-	"github.com/mehran9675/anyfile/internal/ui"
+	_ "github.com/xmhrnx/anyfile/internal/explore/engines/all"
+	"github.com/xmhrnx/anyfile/internal/ui"
 )
 
 // version is set at build time by the release pipeline

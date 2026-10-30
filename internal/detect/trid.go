@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mehran9675/anyfile/internal/settings"
+	"github.com/xmhrnx/anyfile/internal/settings"
 
-	"github.com/mehran9675/anyfile/internal/tools"
+	"github.com/xmhrnx/anyfile/internal/tools"
 )
 
 // Matches lines such as:

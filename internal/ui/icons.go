@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"github.com/mehran9675/anyfile/internal/detect"
 	"github.com/mehran9675/giode"
 	"github.com/mehran9675/giode/styles/properties"
+	"github.com/xmhrnx/anyfile/internal/detect"
 )
 
 // Outline icons on a 24×24 grid, in the style of Lucide (ISC license).

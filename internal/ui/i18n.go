@@ -1,10 +1,10 @@
 package ui
 
 import (
-	"github.com/mehran9675/anyfile/internal/locales"
-	"github.com/mehran9675/anyfile/internal/settings"
 	"github.com/mehran9675/giode"
 	"github.com/mehran9675/giode/i18n"
+	"github.com/xmhrnx/anyfile/internal/locales"
+	"github.com/xmhrnx/anyfile/internal/settings"
 )
 
 // tr translates English text (the key in internal/locales) and fills

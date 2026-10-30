@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mehran9675/anyfile/internal/detect"
-	"github.com/mehran9675/anyfile/internal/explore"
-	"github.com/mehran9675/anyfile/internal/tools"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/explore"
+	"github.com/xmhrnx/anyfile/internal/tools"
 )
 
 func init() {

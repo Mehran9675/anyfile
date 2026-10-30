@@ -1,4 +1,4 @@
-module github.com/mehran9675/anyfile
+module github.com/xmhrnx/anyfile
 
 go 1.26.6
 

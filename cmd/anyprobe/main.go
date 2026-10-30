@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mehran9675/anyfile/internal/detect"
-	"github.com/mehran9675/anyfile/internal/explore"
-	_ "github.com/mehran9675/anyfile/internal/explore/engines/all"
+	"github.com/xmhrnx/anyfile/internal/detect"
+	"github.com/xmhrnx/anyfile/internal/explore"
+	_ "github.com/xmhrnx/anyfile/internal/explore/engines/all"
 )
 
 var (
